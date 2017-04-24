@@ -2,7 +2,7 @@
 : ${HOST_LIST=docker-220,docker-222}
 
 
-install-etcd() {
+etcd-install() {
     # wget https://github.com/coreos/etcd/releases/download/v3.1.5/etcd-v3.1.5-linux-amd64.tar.gz
 
     pdcp -w $HOST_LIST ./etcd-v3.1.5-linux-amd64.tar.gz ~
@@ -12,7 +12,12 @@ install-etcd() {
 
 }
 
-start-etcd() {
+etcd-open-ports() {
+    pdsh -w $HOST_LIST firewall-cmd --zone=public --add-port=2380/tcp --permanent
+    pdsh -w $HOST_LIST firewall-cmd --reload
+}
+
+etcd-start() {
     # todo: open port 2380, 2379
     local cluster_size=$1
 
@@ -27,12 +32,16 @@ start-etcd() {
         fi
 
         local host_ip=$(grep -i $host /etc/hosts | awk '{print $1}')
-        pdsh -w $host ETCD_DISCOVERY=${token} \
-        etcd -name etcd-$host -initial-advertise-peer-urls http://${host_ip}:2380 \
+
+        # stop it first
+        pdsh -w $host ps -ef | grep 'etcd -name'| grep -v grep | awk '{print $2}' | xargs kill -9
+
+        pdsh -w $host nohup ETCD_DISCOVERY=${token} \
+        nohup etcd -name etcd-$host -initial-advertise-peer-urls http://${host_ip}:2380 \
           -listen-peer-urls http://${host_ip}:2380 \
           -listen-client-urls http://${host_ip}:2379,http://127.0.0.1:2379 \
           -advertise-client-urls http://${host_ip}:2379 \
-          -discovery ${token}
+          -discovery ${token} > ~/etcd.log &
 
         count=$(($count+1))
     done
