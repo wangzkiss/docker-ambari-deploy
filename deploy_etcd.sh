@@ -1,5 +1,5 @@
 #!/usr/bin/bash
-: ${HOST_LIST=dokcer-220,docker-222}
+: ${HOST_LIST=docker-220,docker-222}
 
 
 install-etcd() {
@@ -7,10 +7,8 @@ install-etcd() {
 
     pdcp -w $HOST_LIST ./etcd-v3.1.5-linux-amd64.tar.gz ~
 
-    pdsh -w $HOST_LIST cd ~
-    pdsh -w $HOST_LIST tar -zxvf etcd-v3.1.5-linux-amd64.tar.gz
-    pdsh -w $HOST_LIST cd etcd-v3.1.5-linux-amd64/
-    pdsh -w $HOST_LIST mv etcd* /usr/bin
+    pdsh -w $HOST_LIST tar -zxf ~/etcd-v3.1.5-linux-amd64.tar.gz
+    pdsh -w $HOST_LIST mv -f ~/etcd-v3.1.5-linux-amd64/etcd* /usr/bin
 
 }
 
