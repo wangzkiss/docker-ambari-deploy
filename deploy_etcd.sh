@@ -17,22 +17,26 @@ install-etcd() {
 start-etcd() {
     # todo: open port 2380, 2379
     local cluster_size=$1
-    # net interface eg: eth0
-    local connect_net_interface=$2
+
     local token=$(curl "https://discovery.etcd.io/new?size=$cluster_size")
 
-
     local host_list=${HOST_LIST//,/ }
+    local count=0
     for host in $host_list
     do
-        local host_ip=$(grep -i $host /etc/hosts | awk '{print $1}')
+        if [ $count -eq $cluster_size ];then
+            break
+        fi
 
+        local host_ip=$(grep -i $host /etc/hosts | awk '{print $1}')
         pdsh -w $host ETCD_DISCOVERY=${token} \
         etcd -name etcd-$host -initial-advertise-peer-urls http://${host_ip}:2380 \
           -listen-peer-urls http://${host_ip}:2380 \
           -listen-client-urls http://${host_ip}:2379,http://127.0.0.1:2379 \
           -advertise-client-urls http://${host_ip}:2379 \
           -discovery ${token}
+
+        count=$(($count+1))
     done
     # local listen_ip=$(ip addr | grep inet | grep $connect_net_interface | awk -F" " '{print $2}'| sed -e 's/\/.*$//')
 }
