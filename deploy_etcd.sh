@@ -36,7 +36,7 @@ etcd-start() {
         # stop it first
         pdsh -w $host ps -ef | grep 'etcd -name'| grep -v grep | awk '{print $2}' | xargs kill -9
 
-        pdsh -w $host nohup ETCD_DISCOVERY=${token} \
+        pdsh -w $host ETCD_DISCOVERY=${token} \
         nohup etcd -name etcd-$host -initial-advertise-peer-urls http://${host_ip}:2380 \
           -listen-peer-urls http://${host_ip}:2380 \
           -listen-client-urls http://${host_ip}:2379,http://127.0.0.1:2379 \
