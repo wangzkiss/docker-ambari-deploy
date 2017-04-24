@@ -28,7 +28,7 @@ start-etcd() {
         local host_ip=$(grep -i $host /etc/hosts | awk '{print $1}')
 
         pdsh -w $host ETCD_DISCOVERY=${token} \
-        etcd -name etcd0 -initial-advertise-peer-urls http://${host_ip}:2380 \
+        etcd -name etcd-$host -initial-advertise-peer-urls http://${host_ip}:2380 \
           -listen-peer-urls http://${host_ip}:2380 \
           -listen-client-urls http://${host_ip}:2379,http://127.0.0.1:2379 \
           -advertise-client-urls http://${host_ip}:2379 \
