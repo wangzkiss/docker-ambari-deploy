@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 # 必须配置好，本地host文件
-: ${HOST_LIST=docker-220,docker-222}
+: ${HOST_LIST:=docker-220,docker-222}
 # 通过 calico 配置的跨节点网络
 : ${CALICO_NET:=docker_test}
 
@@ -160,6 +160,16 @@ test-calico-net-conn() {
     pdsh -w $(_get-first-host-ip) docker exec workload-A ping -c 4 workload-B.$CALICO_NET
     pdsh -w $(_get-first-host-ip) docker exec workload-A ping -c 4 workload-C.$CALICO_NET
 
+}
+
+main() {
+    etcd-install
+    etcd-open-ports
+    etcd-start
+    etcd-config-docker-daemon
+    calico-start
+    calico-create-net
+    test-calico-net-conn
 }
 
 # call arguments verbatim:
