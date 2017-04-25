@@ -1,10 +1,11 @@
 #!/usr/bin/bash
 # 必须配置好，本地host文件
 : ${HOST_LIST=docker-220,docker-222}
-
 # 通过 calico 配置的跨节点网络
 : ${CALICO_NET:=docker_test}
 
+# split by space
+HOST_FOR_LIST=${HOST_LIST//,/ }
 
 etcd-install() {
     # wget https://github.com/coreos/etcd/releases/download/v3.1.5/etcd-v3.1.5-linux-amd64.tar.gz
@@ -12,7 +13,6 @@ etcd-install() {
 
     pdsh -w $HOST_LIST tar -zxf ~/etcd-v3.1.5-linux-amd64.tar.gz
     pdsh -w $HOST_LIST mv -f ~/etcd-v3.1.5-linux-amd64/etcd* /usr/bin
-
 }
 
 etcd-open-ports() {
@@ -23,12 +23,10 @@ etcd-open-ports() {
 etcd-start() {
     # todo: open port 2380, 2379
     local cluster_size=${1:?"usege: etcd-start <CLUSTER_SIZE>"}
-
     local token=$(curl "https://discovery.etcd.io/new?size=$cluster_size")
 
-    local host_list=${HOST_LIST//,/ }
     local count=0
-    for host in $host_list
+    for host in $HOST_FOR_LIST
     do
         if [ $count -eq $cluster_size ];then
             break
@@ -51,21 +49,21 @@ etcd-start() {
 }
 
 _get-first-host-ip() {
-    local host_list=${HOST_LIST//,/ }
-    local host=$(echo $host_list | awk '{print $1}')
-
+    local host=$(echo $HOST_FOR_LIST | awk '{print $1}')
     grep -i $host /etc/hosts | awk '{print $1}'
 }
 
 _get-second-host-ip() {
-    local host_list=${HOST_LIST//,/ }
-    local host=$(echo $host_list | awk '{print $2}')
-
+    local host=$(echo $HOST_FOR_LIST | awk '{print $2}')
     grep -i $host /etc/hosts | awk '{print $2}'
 }
 
-etcd-config-docker-daemon() {
+_copy_this_sh() {
     pdcp -w $HOST_LIST $0 ~
+}
+
+etcd-config-docker-daemon() {
+    _copy_this_sh
 
     pdsh -w $HOST_LIST bash ~/$0 _config-docker-daemon $(_get-first-host-ip)
 
@@ -127,11 +125,9 @@ calico-start() {
     pdsh -w $HOST_LIST chmod +x /usr/local/bin/calicoctl
 
     # 拷贝当前脚本
-    pdcp -w $HOST_LIST $0 ~
+    _copy_this_sh
 
-    local host_list=${HOST_LIST//,/ }
-
-    for host in $host_list
+    for host in $HOST_FOR_LIST
     do
         local host_ip=$(grep -i $host /etc/hosts | awk '{print $1}')
 
@@ -165,14 +161,6 @@ test-calico-net-conn() {
     pdsh -w $(_get-first-host-ip) docker exec workload-A ping -c 4 workload-C.$CALICO_NET
 
 }
-
-
-
-
-
-
-
-
 
 # call arguments verbatim:
 $@
