@@ -5,7 +5,6 @@
 
 etcd-install() {
     # wget https://github.com/coreos/etcd/releases/download/v3.1.5/etcd-v3.1.5-linux-amd64.tar.gz
-
     pdcp -w $HOST_LIST ./etcd-v3.1.5-linux-amd64.tar.gz ~
 
     pdsh -w $HOST_LIST tar -zxf ~/etcd-v3.1.5-linux-amd64.tar.gz
@@ -33,7 +32,6 @@ etcd-start() {
         fi
 
         local host_ip=$(grep -i $host /etc/hosts | awk '{print $1}')
-
         # stop it first
         pdsh -w $host ps -ef | grep 'etcd -name'| grep -v grep | awk '{print $2}' | xargs kill -9
 
@@ -57,9 +55,11 @@ _get-firt-host-ip() {
 }
 
 etcd-config-docker-daemon() {
-    pdcp -w $HOST_LIST ./deploy_etcd.sh ~
+    pdcp -w $HOST_LIST $0 ~
 
-    pdsh -w $HOST_LIST bash ~/deploy_etcd.sh _config-docker-daemon $(_get-firt-host-ip)
+    pdsh -w $HOST_LIST bash ~/$0 _config-docker-daemon $(_get-firt-host-ip)
+
+    pdsh -w $HOST_LIST systemctl restart docker
 
 }
 
@@ -82,6 +82,45 @@ _config-docker-daemon() {
     fi
 
 }
+
+
+_local_calico_start() {
+    local first_host_ip=$1
+    local host_ip=$2
+
+    local cluster_ip=""
+    if netstat -lnt | awk '$6 == "LISTEN" && $4 ~ ".2379"'; then
+        cluster_ip="0.0.0.0"
+    else
+        cluster_ip=$first_host_ip
+    fi
+    # 默认的name 和hostName 一直，如果两台机器的hostName一致，则必须指定，不然bgp发现不了远端
+    # ETCD_ENDPOINTS=http://${cluster_ip}:2379 calicoctl node run --ip=$host_ip --node-image calico/node --name node1
+    ETCD_ENDPOINTS=http://${cluster_ip}:2379 calicoctl node run --ip=$host_ip --node-image calico/node
+
+}
+
+
+calico-start() {
+    # sudo wget -O /usr/local/bin/calicoctl http://www.projectcalico.org/builds/calicoctl
+    pdcp -w $HOST_LIST ./calicoctl /usr/local/bin/calicoctl
+
+    pdsh -w $HOST_LIST chmod +x /usr/local/bin/calicoctl
+
+    # 拷贝当前脚本
+    pdcp -w $HOST_LIST $0 ~
+
+    local host_list=${HOST_LIST//,/ }
+
+    for host in $host_list
+    do
+        local host_ip=$(grep -i $host /etc/hosts | awk '{print $1}')
+
+        pdsh -w $host bash ~/$0 _local_calico_start $(_get-firt-host-ip) $host_ip
+
+    done
+}
+
 
 # call arguments verbatim:
 $@
