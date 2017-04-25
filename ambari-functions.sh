@@ -179,7 +179,7 @@ amb-start-agent() {
   local agent_nums=`etcdctl get /agent-nums`
   local first=1
   local last=$act_agent_size
-  if [[ $agent_nums = "" ]]; then
+  if [ -z "$agent_nums" ]; then
     etcdctl set /agent-nums $act_agent_size
   else
     etcdctl set /agent-nums $(($act_agent_size+$agent_nums))
