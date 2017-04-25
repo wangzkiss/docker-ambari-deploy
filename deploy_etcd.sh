@@ -37,10 +37,10 @@ etcd-start() {
 
         pdsh -w $host ETCD_DISCOVERY=${token} \
         nohup etcd -name etcd-$host -initial-advertise-peer-urls http://${host_ip}:2380 \
-          -listen-peer-urls http://${host_ip}:2380 \
-          -listen-client-urls http://${host_ip}:2379,http://127.0.0.1:2379 \
-          -advertise-client-urls http://${host_ip}:2379 \
-          -discovery ${token} > ~/etcd.log &
+              -listen-peer-urls http://${host_ip}:2380 \
+              -listen-client-urls http://${host_ip}:2379,http://127.0.0.1:2379 \
+              -advertise-client-urls http://${host_ip}:2379 \
+              -discovery ${token} > ~/etcd.log &
 
         count=$(($count+1))
     done
@@ -102,7 +102,12 @@ _local_calico_start() {
 
 
 calico-start() {
-    # sudo wget -O /usr/local/bin/calicoctl http://www.projectcalico.org/builds/calicoctl
+    if ls ./calicoctl; then
+        :
+    else:
+        wget -O ./calicoctl http://www.projectcalico.org/builds/calicoctl
+    fi
+
     pdcp -w $HOST_LIST ./calicoctl /usr/local/bin/calicoctl
 
     pdsh -w $HOST_LIST chmod +x /usr/local/bin/calicoctl
