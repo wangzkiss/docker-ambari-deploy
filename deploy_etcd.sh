@@ -1,4 +1,5 @@
 #!/usr/bin/bash
+# 必须配置好，本地host文件
 : ${HOST_LIST=docker-220,docker-222}
 
 
@@ -46,4 +47,36 @@ etcd-start() {
         count=$(($count+1))
     done
     # local listen_ip=$(ip addr | grep inet | grep $connect_net_interface | awk -F" " '{print $2}'| sed -e 's/\/.*$//')
+}
+
+_get-firt-host-ip() {
+    local host_list=${HOST_LIST//,/ }
+    local host=$(echo $host_list | awk '{print $1}')
+
+    grep -i $host /etc/hosts | awk '{print $1}'
+}
+
+etcd-config-docker-daemon() {
+    local host_list=${HOST_LIST//,/ }
+
+    local cluster_ip=""
+    for host in $host_list
+    do
+        local host_ip=$(grep -i $host /etc/hosts | awk '{print $1}')
+
+        # 本地监听 2379端口
+        if netstat -lnt | awk '$6 == "LISTEN" && $4 ~ ".2379"'; then
+            cluster_ip="0.0.0.0"
+        else
+            cluster_ip=$(_get-firt-host-ip)
+        fi
+
+        if cat ./test | grep -q "cluster-store"; then
+            pdsh -w $host sed -i "s/cluster-store=[^\']*/cluster-store=etcd:\/\/${cluster_ip}:2379/g" /etc/sysconfig/docker
+        else
+            pdsh -w $host sed -i "s/OPTIONS='\(.*\)'/OPTIONS='\1 --cluster-store=etcd:\/\/${cluster_ip}:2379'/g" /etc/sysconfig/docker
+        fi
+
+        pdsh -w $host systemctl restart docker
+    done
 }
