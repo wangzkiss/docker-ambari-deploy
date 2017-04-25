@@ -2,6 +2,9 @@
 # 必须配置好，本地host文件
 : ${HOST_LIST=docker-220,docker-222}
 
+# 通过 calico 配置的跨节点网络
+: ${CALICO_NET:=docker_test}
+
 
 etcd-install() {
     # wget https://github.com/coreos/etcd/releases/download/v3.1.5/etcd-v3.1.5-linux-amd64.tar.gz
@@ -52,6 +55,13 @@ _get-firt-host-ip() {
     local host=$(echo $host_list | awk '{print $1}')
 
     grep -i $host /etc/hosts | awk '{print $1}'
+}
+
+_get-second-host-ip() {
+    local host_list=${HOST_LIST//,/ }
+    local host=$(echo $host_list | awk '{print $2}')
+
+    grep -i $host /etc/hosts | awk '{print $2}'
 }
 
 etcd-config-docker-daemon() {
@@ -128,7 +138,32 @@ calico-start() {
         pdsh -w $host bash ~/$0 _local_calico_start $(_get-firt-host-ip) $host_ip
 
     done
+
+    calicoctl node status
 }
+
+calico-create-net() {
+    # 192.168.0.0/16 calico default CIDR
+    docker network create --driver calico --ipam-driver calico-ipam --subnet=192.168.0.0/16 $CALICO_NET
+}
+
+test-calico-net-conn() {
+    pdsh -w $(_get-firt-host-ip) docker run --net docker_net --name workload-A -tid busybox
+    pdsh -w $(_get-firt-host-ip) docker run --net docker_net --name workload-B -tid busybox
+
+    pdsh -w $(_get-second-host-ip) docker run --net docker_net --name workload-C -tid busybox
+
+    pdsh -w $(_get-firt-host-ip) docker exec workload-A ping -c 4 workload-B.docker_net
+    pdsh -w $(_get-firt-host-ip) docker exec workload-A ping -c 4 workload-C.docker_net
+
+}
+
+
+
+
+
+
+
 
 
 # call arguments verbatim:
