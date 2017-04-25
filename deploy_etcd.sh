@@ -57,27 +57,31 @@ _get-firt-host-ip() {
 }
 
 etcd-config-docker-daemon() {
-    local host_list=${HOST_LIST//,/ }
+    pdcp -w $HOST_LIST ./deploy_etcd.sh ~
 
+    pdsh -w $HOST_LIST bash ~/deploy_etcd.sh _config-docker-daemon $(_get-firt-host-ip)
+
+}
+
+_config-docker-daemon() {
+    local first_host_ip=$1
     local cluster_ip=""
     local docker_config="/etc/sysconfig/docker"
-    for host in $host_list
-    do
-        local host_ip=$(grep -i $host /etc/hosts | awk '{print $1}')
 
-        # 本地监听 2379端口
-        if netstat -lnt | awk '$6 == "LISTEN" && $4 ~ ".2379"'; then
-            cluster_ip="0.0.0.0"
-        else
-            cluster_ip=$(_get-firt-host-ip)
-        fi
+    # 本地监听 2379端口
+    if netstat -lnt | awk '$6 == "LISTEN" && $4 ~ ".2379"'; then
+        cluster_ip="0.0.0.0"
+    else
+        cluster_ip=$first_host_ip
+    fi
 
-        if cat $docker_config | grep -q "cluster-store"; then
-            pdsh -w $host sed -i "s/cluster-store=[^\']*/cluster-store=etcd:\/\/${cluster_ip}:2379/g" $docker_config
-        else
-            pdsh -w $host sed -i "s/OPTIONS='\(.*\)'/OPTIONS='\1 --cluster-store=etcd:\/\/${cluster_ip}:2379'/g" $docker_config
-        fi
+    if cat $docker_config | grep -q "cluster-store"; then
+        sed -i "s/cluster-store=[^\']*/cluster-store=etcd:\/\/${cluster_ip}:2379/g" $docker_config
+    else
+        sed -i "s/OPTIONS='\(.*\)'/OPTIONS='\1 --cluster-store=etcd:\/\/${cluster_ip}:2379'/g" $docker_config
+    fi
 
-        #pdsh -w $host systemctl restart docker
-    done
 }
+
+# call arguments verbatim:
+$@
