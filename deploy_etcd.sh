@@ -162,10 +162,17 @@ test-calico-net-conn() {
 
 }
 
+docker-stop-all() {
+    pdsh -w $HOST_LIST docker stop $(docker ps -a -q)
+}
+
 main() {
+    local cluster_size=${1:?"usege: main <ETCD_CLUSTER_SIZE>"}
+
+    docker-stop-all
     etcd-install
     etcd-open-ports
-    etcd-start
+    etcd-start $cluster_size
     etcd-config-docker-daemon
     calico-start
     calico-create-net
