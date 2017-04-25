@@ -12,7 +12,7 @@ USAGE
 : ${AMBARI_AGENT_IMAGE:="registry.cn-hangzhou.aliyuncs.com/tospur/amb-agent:latest"}
 : ${HTTPD_IMAGE:="registry.cn-hangzhou.aliyuncs.com/tospur/httpd:latest"}
 : ${DOCKER_OPTS:=""}
-: ${CONSUL:="${NODE_PREFIX}-consul"}
+: ${CONSUL:=${NODE_PREFIX}-consul}
 : ${CONSUL_IMAGE:="sequenceiq/consul:v0.5.0-v6"}
 : ${CLUSTER_SIZE:=3}
 : ${DEBUG:=1}

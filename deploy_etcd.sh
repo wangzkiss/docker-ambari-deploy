@@ -19,7 +19,7 @@ etcd-open-ports() {
 
 etcd-start() {
     # todo: open port 2380, 2379
-    local cluster_size=$1
+    local cluster_size=${1:?"usege: etcd-start <CLUSTER_SIZE>"}
 
     local token=$(curl "https://discovery.etcd.io/new?size=$cluster_size")
 
