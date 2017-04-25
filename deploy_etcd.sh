@@ -50,7 +50,7 @@ etcd-start() {
     # local listen_ip=$(ip addr | grep inet | grep $connect_net_interface | awk -F" " '{print $2}'| sed -e 's/\/.*$//')
 }
 
-_get-firt-host-ip() {
+_get-first-host-ip() {
     local host_list=${HOST_LIST//,/ }
     local host=$(echo $host_list | awk '{print $1}')
 
@@ -67,7 +67,7 @@ _get-second-host-ip() {
 etcd-config-docker-daemon() {
     pdcp -w $HOST_LIST $0 ~
 
-    pdsh -w $HOST_LIST bash ~/$0 _config-docker-daemon $(_get-firt-host-ip)
+    pdsh -w $HOST_LIST bash ~/$0 _config-docker-daemon $(_get-first-host-ip)
 
     pdsh -w $HOST_LIST systemctl restart docker
 
@@ -135,7 +135,7 @@ calico-start() {
     do
         local host_ip=$(grep -i $host /etc/hosts | awk '{print $1}')
 
-        pdsh -w $host bash ~/$0 _local_calico_start $(_get-firt-host-ip) $host_ip
+        pdsh -w $host bash ~/$0 _local_calico_start $(_get-first-host-ip) $host_ip
 
     done
 
@@ -143,18 +143,26 @@ calico-start() {
 }
 
 calico-create-net() {
+    docker network rm $CALICO_NET
     # 192.168.0.0/16 calico default CIDR
     docker network create --driver calico --ipam-driver calico-ipam --subnet=192.168.0.0/16 $CALICO_NET
 }
 
 test-calico-net-conn() {
-    pdsh -w $(_get-firt-host-ip) docker run --net docker_net --name workload-A -tid busybox
-    pdsh -w $(_get-firt-host-ip) docker run --net docker_net --name workload-B -tid busybox
+    pdsh -w $(_get-first-host-ip) docker stop workload-A workload-B
+    pdsh -w $(_get-first-host-ip) docker rm workload-A workload-B
 
-    pdsh -w $(_get-second-host-ip) docker run --net docker_net --name workload-C -tid busybox
+    pdsh -w $(_get-first-host-ip) docker run --net $CALICO_NET --name workload-A -tid busybox
+    pdsh -w $(_get-first-host-ip) docker run --net $CALICO_NET --name workload-B -tid busybox
 
-    pdsh -w $(_get-firt-host-ip) docker exec workload-A ping -c 4 workload-B.docker_net
-    pdsh -w $(_get-firt-host-ip) docker exec workload-A ping -c 4 workload-C.docker_net
+
+    pdsh -w $(_get-second-host-ip) docker stop workload-C
+    pdsh -w $(_get-second-host-ip) docker rm workload-C
+
+    pdsh -w $(_get-second-host-ip) docker run --net $CALICO_NET --name workload-C -tid busybox
+
+    pdsh -w $(_get-first-host-ip) docker exec workload-A ping -c 4 workload-B.$CALICO_NET
+    pdsh -w $(_get-first-host-ip) docker exec workload-A ping -c 4 workload-C.$CALICO_NET
 
 }
 
