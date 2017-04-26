@@ -20,10 +20,16 @@ etcd-open-ports() {
     pdsh -w $HOST_LIST firewall-cmd --reload
 }
 
+_stop-etcd-progress() {
+    ps -ef | grep 'etcd -name'| grep -v grep | awk '{print $2}' | xargs kill -9
+}
+
 etcd-start() {
     # todo: open port 2380, 2379
     local cluster_size=${1:?"usege: etcd-start <CLUSTER_SIZE>"}
     local token=$(curl "https://discovery.etcd.io/new?size=$cluster_size")
+
+    _copy_this_sh
 
     local count=0
     for host in $HOST_FOR_LIST
@@ -34,7 +40,7 @@ etcd-start() {
 
         local host_ip=$(grep -i $host /etc/hosts | awk '{print $1}')
         # stop it first
-        pdsh -w $host ps -ef | grep 'etcd -name'| grep -v grep | awk '{print $2}' | xargs kill -9
+        pdsh -w $host bash ~/$0 _stop-etcd-progress
 
         pdsh -w $host ETCD_DISCOVERY=${token} \
         nohup etcd -name etcd-$host -initial-advertise-peer-urls http://${host_ip}:2380 \
@@ -162,8 +168,15 @@ test-calico-net-conn() {
 
 }
 
+_clean-all-container() {
+    docker stop $(docker ps -a -q)
+    docker rm $(docker ps -a -q)
+}
+
 docker-stop-all() {
-    pdsh -w $HOST_LIST docker stop $(docker ps -a -q)
+    _copy_this_sh
+
+    pdsh -w $host bash ~/$0 _clean-all-container
 }
 
 main() {
