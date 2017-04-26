@@ -418,16 +418,9 @@ amb-clean-cluster() {
       pdsh -w $host docker stop $(docker ps -a -q -f "name=${NODE_PREFIX}*")
       pdsh -w $host docker rm $(docker ps -a -q -f "name=${NODE_PREFIX}*")
 
-
-
       ((count+=1))
   done
-
-
-
 }
-
-docker ps -a -q -f "name=workload*"
 
 # call arguments verbatim:
 $@
