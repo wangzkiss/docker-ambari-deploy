@@ -407,15 +407,19 @@ amb-clean-agent() {
   docker rm $(docker ps -a -q -f "name=${NODE_PREFIX}*")
 }
 
+amb-clean-server() {
+  docker stop $AMBARI_SERVER_NAME $CONSUL $HTTPD_NAME
+  docker rm $AMBARI_SERVER_NAME $CONSUL $HTTPD_NAME
+}
+
 amb-clean-cluster() {
   local count=0
   _copy_this_sh
-  
+
   for host in $HOST_FOR_LIST
   do
       if [ $count -eq 0 ];then
-        pdsh -w $host docker stop $AMBARI_SERVER_NAME $CONSUL $HTTPD_NAME
-        pdsh -w $host docker rm $AMBARI_SERVER_NAME $CONSUL $HTTPD_NAME
+        pdsh -w $host bash ~/$0 amb-clean-server
 
         # 在任意节点 清除 etcd 存储信息
         pdsh -w $host bash ~/$0 amb-clean-etcd
