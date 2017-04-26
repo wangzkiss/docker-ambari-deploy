@@ -402,6 +402,32 @@ amb-start-cluster() {
   done
 }
 
+amb-clean-cluster() {
+  local count=0
+  for host in $HOST_FOR_LIST
+  do
+      if [ $count -eq 0 ];then
+        pdsh -w $host docker stop $AMBARI_SERVER_NAME $CONSUL $HTTPD_NAME
+        pdsh -w $host docker rm $AMBARI_SERVER_NAME $CONSUL $HTTPD_NAME
+
+        # 在任意节点 清除 etcd 存储信息
+        pdsh -w $host bash ~/$0 amb-clean-etcd
+      fi
+
+      sleep 5
+      pdsh -w $host docker stop $(docker ps -a -q -f "name=${NODE_PREFIX}*")
+      pdsh -w $host docker rm $(docker ps -a -q -f "name=${NODE_PREFIX}*")
+
+
+
+      ((count+=1))
+  done
+
+
+
+}
+
+docker ps -a -q -f "name=workload*"
 
 # call arguments verbatim:
 $@
