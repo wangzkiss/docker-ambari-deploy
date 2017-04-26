@@ -159,7 +159,7 @@ amb-ssh-passwdless() {
 
 # 启动 abmari agent
 amb-start-agent() {
-  local act_agent_size=$1
+  local act_agent_size=${1:?"Usage:amb-start-agent <AGENT_NUM>"}
   local agent_nums=`etcdctl get /agent-nums`
   local first=1
   local last=$act_agent_size
