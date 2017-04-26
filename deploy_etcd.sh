@@ -43,7 +43,7 @@ etcd-start() {
               -advertise-client-urls http://${host_ip}:2379 \
               -discovery ${token} > ~/etcd.log &
 
-        count=$(($count+1))
+        ((count+=1))
     done
     # local listen_ip=$(ip addr | grep inet | grep $connect_net_interface | awk -F" " '{print $2}'| sed -e 's/\/.*$//')
 }

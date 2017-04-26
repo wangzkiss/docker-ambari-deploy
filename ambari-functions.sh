@@ -27,6 +27,11 @@ USAGE
 # HDP httpd service name
 : ${HTTPD_NAME:=httpd}
 
+: ${HOST_LIST:=docker-220,docker-222}
+
+# split by space
+HOST_FOR_LIST=${HOST_LIST//,/ }
+
 
 amb-settings() {
   cat <<EOF
@@ -109,27 +114,6 @@ docker-psa() {
   docker inspect --format="{{.Name}} {{.NetworkSettings.Networks.${CALICO_NET}.IPAddress}} {{.Config.Image}} {{.Config.Entrypoint}} {{.Config.Cmd}}" $(docker ps -qa)
 }
 
-# 启动集群
-amb-start-cluster() {
-  local act_cluster_size=$1
-  : ${act_cluster_size:=$CLUSTER_SIZE}
-  echo starting an ambari cluster with: $act_cluster_size nodes
-
-  # 启动 server 节点
-  amb-start-first
-
-  [ $act_cluster_size -gt 1 ] && for i in $(seq $((act_cluster_size - 1))); do
-    # 1, 2 (3个节点的集群), agent
-    amb-start-node $i
-  done
-}
-
-
-# 启动 ambari server 和 consul
-amb-start-server() {
-  amb-start-first
-}
-
 amb-net-install-sshpass() {
   # server 端添加 能上网的 nameserver
   local nameserver=$(docker exec -it $CONSUL  sh -c "sed -n '/.*nameserver.*/p' /etc/resolv.conf")
@@ -205,21 +189,21 @@ amb-shell() {
   _amb_run_shell /tmp/ambari-shell.sh
 }
 
-amb-deploy-cluster() {
-  local act_cluster_size=$1
-  : ${act_cluster_size:=$CLUSTER_SIZE}
+# amb-deploy-cluster() {
+#   local act_cluster_size=$1
+#   : ${act_cluster_size:=$CLUSTER_SIZE}
 
-  if [[ $# -gt 1 ]]; then
-    BLUEPRINT=$2
-  else
-    [ $act_cluster_size -gt 1 ] && BLUEPRINT=multi-node-hdfs-yarn || BLUEPRINT=single-node-hdfs-yarn
-  fi
+#   if [[ $# -gt 1 ]]; then
+#     BLUEPRINT=$2
+#   else
+#     [ $act_cluster_size -gt 1 ] && BLUEPRINT=multi-node-hdfs-yarn || BLUEPRINT=single-node-hdfs-yarn
+#   fi
 
-  : ${BLUEPRINT:?" required (single-node-hdfs-yarn / multi-node-hdfs-yarn / hdp-singlenode-default / hdp-multinode-default)"}
+#   : ${BLUEPRINT:?" required (single-node-hdfs-yarn / multi-node-hdfs-yarn / hdp-singlenode-default / hdp-multinode-default)"}
 
-  amb-start-cluster $act_cluster_size
-  _amb_run_shell /tmp/install-cluster.sh
-}
+#   amb-start-cluster $act_cluster_size
+#   _amb_run_shell /tmp/install-cluster.sh
+# }
 
 amb-get-consul-ip() {
   docker run --net $CALICO_NET --name $CONSUL -tid  busybox
@@ -274,7 +258,7 @@ amb-start-ambari-server() {
 
 # 启动 consul 服务和 amb-server 服务
 # 这里为什么要用 consul 的dns port?
-amb-start-first() {
+amb-start-server() {
   amb-start-consul
 
   sleep 5
@@ -393,3 +377,31 @@ amb-tool-get-HDP-url() {
 }
 
 
+_copy_this_sh() {
+    pdcp -w $HOST_LIST $0 ~
+}
+
+# 启动集群
+amb-start-cluster() {
+  local agents_per_host=${1:?"usage: AGENTS_PER_HOST"}
+
+  _copy_this_sh
+
+  local count=0
+  for host in $HOST_FOR_LIST
+  do
+      if [ $count -eq 0 ];then
+        pdsh -w $host bash ~/$0 amb-start-server
+      fi
+
+      sleep 5
+
+      pdsh -w $host bash ~/$0 amb-start-agent $agents_per_host
+
+      ((count+=1))
+  done
+}
+
+
+# call arguments verbatim:
+$@
