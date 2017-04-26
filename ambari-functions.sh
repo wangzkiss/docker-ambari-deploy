@@ -116,26 +116,26 @@ docker-psa() {
 
 amb-net-install-sshpass() {
   # server 端添加 能上网的 nameserver
-  local nameserver=$(docker exec -it $CONSUL  sh -c "sed -n '/.*nameserver.*/p' /etc/resolv.conf")
+  local nameserver=$(docker exec $CONSUL  sh -c "sed -n '/.*nameserver.*/p' /etc/resolv.conf")
 
-  docker exec -it $AMBARI_SERVER_NAME  sh -c "echo '$nameserver' >> /etc/resolv.conf"
+  docker exec $AMBARI_SERVER_NAME  sh -c "echo '$nameserver' >> /etc/resolv.conf"
 
-  docker exec -it $AMBARI_SERVER_NAME  sh -c "cat /etc/resolv.conf"
+  docker exec $AMBARI_SERVER_NAME  sh -c "cat /etc/resolv.conf"
 
   # install sshpass, 需要有上网能力
-  docker exec -it $AMBARI_SERVER_NAME  sh -c "yum install -y sshpass"
+  docker exec $AMBARI_SERVER_NAME  sh -c "yum install -y sshpass"
 }
 
 
 amb-copy-ssh-ids() {
-  docker exec -it $AMBARI_SERVER_NAME  sh -c "ssh-keygen -f ~/.ssh/id_rsa -t rsa -N ''"
+  docker exec $AMBARI_SERVER_NAME  sh -c "ssh-keygen -f ~/.ssh/id_rsa -t rsa -N ''"
   local agent_list=$(etcdctl ls /ips | grep amb'[0-9]')
   for i in $agent_list; do
     local agent_ip=$(etcdctl get $i)
     echo $agent_ip
     # 可能有问题，执行可以选择手工输入密码
-    # docker exec -it $AMBARI_SERVER_NAME  sh -c "ssh-copy-id root@${agent_ip}"
-    docker exec -it $AMBARI_SERVER_NAME  sh -c "sshpass -p Zasd_1234 ssh-copy-id root@${agent_ip}"
+    # docker exec $AMBARI_SERVER_NAME  sh -c "ssh-copy-id root@${agent_ip}"
+    docker exec $AMBARI_SERVER_NAME  sh -c "sshpass -p Zasd_1234 ssh-copy-id root@${agent_ip}"
   done
 }
 
@@ -181,7 +181,7 @@ _amb_run_shell() {
   : ${COMMAND:? required}
   get-ambari-server-ip
   EXPECTED_HOST_COUNT=$(docker inspect --format="{{.Config.Image}} {{.Name}}" $(docker ps -q)|grep $AMBARI_AGENT_IMAGE|grep $NODE_PREFIX|wc -l|xargs)
-  run-command docker run -it --rm -e EXPECTED_HOST_COUNT=$EXPECTED_HOST_COUNT -e BLUEPRINT=$BLUEPRINT --link ${AMBARI_SERVER_NAME}:ambariserver \
+  run-command docker run --rm -e EXPECTED_HOST_COUNT=$EXPECTED_HOST_COUNT -e BLUEPRINT=$BLUEPRINT --link ${AMBARI_SERVER_NAME}:ambariserver \
      --entrypoint /bin/sh $AMBARI_SERVER_IMAGE -c $COMMAND
 }
 
@@ -316,14 +316,14 @@ amb-start-node() {
   _consul-register-service ${NODE_PREFIX}${NUMBER} $(get-host-ip ${NODE_PREFIX}$NUMBER)
 
   # 给agent 添加密码, 方便后续server设置免密码
-  docker exec -it ${NODE_PREFIX}$NUMBER sh -c " echo Zasd_1234 | passwd root --stdin "
+  docker exec ${NODE_PREFIX}$NUMBER sh -c " echo Zasd_1234 | passwd root --stdin "
 
   # 修改 amb reopo url to HDP httpd service
   amb-replace-ambari-url ${NODE_PREFIX}$NUMBER
 }
 
 _consul-register-service() {
-  docker run -it  --net ${CALICO_NET} --rm appropriate/curl sh -c "
+  docker run  --net ${CALICO_NET} --rm appropriate/curl sh -c "
     curl -X PUT -d \"{
         \\\"Node\\\": \\\"$1\\\",
         \\\"Address\\\": \\\"$2\\\",
@@ -340,7 +340,7 @@ amb-start-HDP-httpd() {
   docker build -t my/httpd:latest ./httpd
   # 这里需要先将 HDP, HDP-UTILS-1.1.0.20 (centos 7) 放到 ${HDP_HOST_DIR}, 提供httpd访问
   # TODO: 必须检查配置路径的有效性
-  docker run --net ${CALICO_NET} --privileged=true  -itd --name $HTTPD_NAME -v ${HDP_HOST_DIR}:/usr/local/apache2/htdocs/ $HTTPD_IMAGE
+  docker run --net ${CALICO_NET} --privileged=true -d --name $HTTPD_NAME -v ${HDP_HOST_DIR}:/usr/local/apache2/htdocs/ $HTTPD_IMAGE
 
   set-host-ip $HTTPD_NAME
 }
@@ -352,15 +352,15 @@ amb-replace-ambari-url() {
   local baseurl=http://${httpd_ip}/ambari/centos7/2.4.0.1-1/
   local gpgkey=http://${httpd_ip}/ambari/centos7/2.4.0.1-1/RPM-GPG-KEY/RPM-GPG-KEY-Jenkins
 
-  docker exec -it $NODE_NAME  sh -c "sed -i 's/baseurl=.*/baseurl=${baseurl//\//\\/}/g' /etc/yum.repos.d/ambari.repo"
-  docker exec -it $NODE_NAME  sh -c "sed -i 's/gpgkey=.*/gpgkey=${gpgkey//\//\\/}/g' /etc/yum.repos.d/ambari.repo"
+  docker exec $NODE_NAME  sh -c "sed -i 's/baseurl=.*/baseurl=${baseurl//\//\\/}/g' /etc/yum.repos.d/ambari.repo"
+  docker exec $NODE_NAME  sh -c "sed -i 's/gpgkey=.*/gpgkey=${gpgkey//\//\\/}/g' /etc/yum.repos.d/ambari.repo"
 
-  docker exec -it $NODE_NAME  sh -c "cat /etc/yum.repos.d/ambari.repo"
+  docker exec $NODE_NAME  sh -c "cat /etc/yum.repos.d/ambari.repo"
 }
 
 
 amb-tool-get-server-sshkey() {
-  docker exec -it ${AMBARI_SERVER_NAME}  sh -c "cat ~/.ssh/id_rsa"
+  docker exec ${AMBARI_SERVER_NAME}  sh -c "cat ~/.ssh/id_rsa"
 }
 
 amb-tool-get-agent-host-list() {
