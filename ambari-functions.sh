@@ -402,8 +402,15 @@ amb-start-cluster() {
   done
 }
 
+amb-clean-agent() {
+  docker stop $(docker ps -a -q -f "name=${NODE_PREFIX}*")
+  docker rm $(docker ps -a -q -f "name=${NODE_PREFIX}*")
+}
+
 amb-clean-cluster() {
   local count=0
+  _copy_this_sh
+  
   for host in $HOST_FOR_LIST
   do
       if [ $count -eq 0 ];then
@@ -415,8 +422,7 @@ amb-clean-cluster() {
       fi
 
       sleep 5
-      pdsh -w $host docker stop $(docker ps -a -q -f "name=${NODE_PREFIX}*")
-      pdsh -w $host docker rm $(docker ps -a -q -f "name=${NODE_PREFIX}*")
+      pdsh -w $host bash ~/$0 amb-clean-agent
 
       ((count+=1))
   done
