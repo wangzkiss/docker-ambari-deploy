@@ -171,7 +171,7 @@ amb-start-agent() {
     last=$(($agent_nums+$act_agent_size))
   fi
 
-  [ $act_agent_size -gt 1 ] && for i in $(seq $first $last); do
+  [ $act_agent_size -ge 1 ] && for i in $(seq $first $last); do
     amb-start-node $i
   done
 }
