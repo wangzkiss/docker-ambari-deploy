@@ -55,7 +55,7 @@ etcd-start() {
 }
 
 _get-first-host() {
-    $(echo $HOST_FOR_LIST | awk '{print $1}')
+    echo $HOST_FOR_LIST | awk '{print $1}'
 }
 
 _get-first-host-ip() {
