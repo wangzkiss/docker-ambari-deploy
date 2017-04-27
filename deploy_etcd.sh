@@ -149,6 +149,7 @@ calico-start() {
     if [ -e ./calicoctl ]; then
         :
     else
+        echo "downloading calicoctl ......"
         wget -O ./calicoctl https://github.com/projectcalico/calicoctl/releases/download/v1.1.3/calicoctl
     fi
 
@@ -216,13 +217,21 @@ docker-stop-all() {
 main() {
     local cluster_size=${1:?"usege: main <ETCD_CLUSTER_SIZE>"}
 
+    echo "docker-stop-all starting"
     docker-stop-all
+    echo "etcd-install starting"
     etcd-install
+    echo "etcd-open-ports starting"
     etcd-open-ports
+    echo "etcd-start $cluster_size starting"
     etcd-start $cluster_size
+    echo "etcd-config-docker-daemon starting"
     etcd-config-docker-daemon
+    echo "calico-start starting"
     calico-start
+    echo "calico-create-net starting"
     calico-create-net
+    echo "test-calico-net-conn starting"
     test-calico-net-conn
 }
 
