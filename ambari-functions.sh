@@ -129,11 +129,11 @@ amb-copy-ssh-ids() {
 
   local agent_list=$(etcdctl ls /ips | grep amb'[0-9]')
   for i in $agent_list; do
-    local agent_ip=$(etcdctl get $i)
-    echo $agent_ip
-    
-    docker exec $AMBARI_SERVER_NAME  sh -c "ssh-keyscan $agent_ip >> ~/.ssh/known_hosts"
-    docker exec $AMBARI_SERVER_NAME  sh -c "sshpass -p Zasd_1234 ssh-copy-id root@${agent_ip}"
+    local host_name="$i.service.consul"
+    echo $host_name
+
+    docker exec $AMBARI_SERVER_NAME  sh -c "ssh-keyscan $host_name >> ~/.ssh/known_hosts"
+    docker exec $AMBARI_SERVER_NAME  sh -c "sshpass -p Zasd_1234 ssh-copy-id root@${host_name}"
   done
 }
 
