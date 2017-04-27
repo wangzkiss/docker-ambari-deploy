@@ -131,8 +131,8 @@ amb-copy-ssh-ids() {
   for i in $agent_list; do
     local agent_ip=$(etcdctl get $i)
     echo $agent_ip
-    # 可能有问题，执行可以选择手工输入密码
-    # docker exec $AMBARI_SERVER_NAME  sh -c "ssh-copy-id root@${agent_ip}"
+    
+    docker exec $AMBARI_SERVER_NAME  sh -c "ssh-keyscan $agent_ip >> ~/.ssh/known_hosts"
     docker exec $AMBARI_SERVER_NAME  sh -c "sshpass -p Zasd_1234 ssh-copy-id root@${agent_ip}"
   done
 }
