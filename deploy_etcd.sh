@@ -4,7 +4,7 @@
 # 通过 calico 配置的跨节点网络
 : ${CALICO_NET:=docker_test}
 
-: ${CALICO_CIDR:="192.0.2.0/24"}
+: ${CALICO_CIDR:=192.0.2.0/24}
 
 # split by space
 HOST_FOR_LIST=${HOST_LIST//,/ }
@@ -153,7 +153,7 @@ calico-start() {
     pdsh -w $(_get-first-host) calicoctl node status
 }
 
-_calico-create-ipPool() {
+_calico-delete-ipPool() {
 cat << EOF | calicoctl delete -f -
 - apiVersion: v1
   kind: ipPool
@@ -162,7 +162,9 @@ cat << EOF | calicoctl delete -f -
   spec:
     nat-outgoing: true
 EOF
+}
 
+_calico-create-ipPool() {
 cat << EOF | calicoctl create -f -
 - apiVersion: v1
   kind: ipPool
@@ -193,7 +195,6 @@ cat << EOF | calicoctl apply -f -
       source: {}
     ingress:
     - action: allow
-      protocol: tcp
       destination: {}
       source: {}
 EOF
@@ -201,8 +202,9 @@ EOF
 
 calico-create-net() {
     docker network rm $CALICO_NET
-    
-    _calico-create-ipPool
+
+    _calico-delete-ipPool
+    _calico-create-ipPool   
     # 192.168.0.0/16 calico default CIDR
     docker network create --driver calico --ipam-driver calico-ipam --subnet=$CALICO_CIDR $CALICO_NET
 
