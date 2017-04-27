@@ -127,7 +127,8 @@ amb-config-nameserver() {
 amb-copy-ssh-ids() {
   docker exec $AMBARI_SERVER_NAME  sh -c "echo -e  'y\n'|ssh-keygen -q -t rsa -N '' -f ~/.ssh/id_rsa"
 
-  local agent_list=$(etcdctl ls /ips | grep amb'[0-9]')
+  # /ips/amb1
+  local agent_list=$(etcdctl ls /ips | grep amb'[0-9]' | awk -F / '{print $3}')
   for i in $agent_list; do
     local host_name="$i.service.consul"
     echo $host_name
