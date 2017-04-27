@@ -4,6 +4,8 @@
 # 通过 calico 配置的跨节点网络
 : ${CALICO_NET:=docker_test}
 
+: ${CALICO_CIDR:="192.0.2.0/24"}
+
 # split by space
 HOST_FOR_LIST=${HOST_LIST//,/ }
 
@@ -119,33 +121,6 @@ _local_calico_start() {
 
 }
 
-# ingress:
-#   source:
-#     tag: docker_test
-# 默认的配置，source 有tag现在，只允许相同网络互相访问
-# 外网无法访问 8080 端口
-_config-calico-profile() {
-cat << EOF | calicoctl apply -f -
-- apiVersion: v1
-  kind: profile
-  metadata:
-    name: $CALICO_NET
-    tags:
-    - $CALICO_NET
-  spec:
-    egress:
-    - action: allow
-      destination: {}
-      source: {}
-    ingress:
-    - action: allow
-      protocol: tcp
-      destination: {}
-      source: {}
-EOF
-}
-
-
 calico-start() {
     if [ -e ./calicoctl ]; then
         :
@@ -175,15 +150,63 @@ calico-start() {
 
     sleep 5
 
-    pdsh -w $(_get-first-host) bash ~/$0 _config-calico-profile
-
     pdsh -w $(_get-first-host) calicoctl node status
+}
+
+_calico-create-ipPool() {
+cat << EOF | calicoctl delete -f -
+- apiVersion: v1
+  kind: ipPool
+  metadata:
+    cidr: $CALICO_CIDR
+  spec:
+    nat-outgoing: true
+EOF
+
+cat << EOF | calicoctl create -f -
+- apiVersion: v1
+  kind: ipPool
+  metadata:
+    cidr: $CALICO_CIDR
+  spec:
+    nat-outgoing: true
+EOF
+}
+
+# ingress:
+#   source:
+#     tag: docker_test
+# 默认的配置，source 有tag现在，只允许相同网络互相访问
+# 外网无法访问 8080 端口
+_config-calico-profile() {
+cat << EOF | calicoctl apply -f -
+- apiVersion: v1
+  kind: profile
+  metadata:
+    name: $CALICO_NET
+    tags:
+    - $CALICO_NET
+  spec:
+    egress:
+    - action: allow
+      destination: {}
+      source: {}
+    ingress:
+    - action: allow
+      protocol: tcp
+      destination: {}
+      source: {}
+EOF
 }
 
 calico-create-net() {
     docker network rm $CALICO_NET
+    
+    _calico-create-ipPool
     # 192.168.0.0/16 calico default CIDR
-    docker network create --driver calico --ipam-driver calico-ipam --subnet=192.168.0.0/16 $CALICO_NET
+    docker network create --driver calico --ipam-driver calico-ipam --subnet=$CALICO_CIDR $CALICO_NET
+
+    _config-calico-profile
 }
 
 test-calico-net-conn() {
