@@ -114,21 +114,19 @@ docker-psa() {
   docker inspect --format="{{.Name}} {{.NetworkSettings.Networks.${CALICO_NET}.IPAddress}} {{.Config.Image}} {{.Config.Entrypoint}} {{.Config.Cmd}}" $(docker ps -qa)
 }
 
-amb-net-install-sshpass() {
+amb-config-nameserver() {
   # server 端添加 能上网的 nameserver
   local nameserver=$(docker exec $CONSUL  sh -c "sed -n '/.*nameserver.*/p' /etc/resolv.conf")
 
   docker exec $AMBARI_SERVER_NAME  sh -c "echo '$nameserver' >> /etc/resolv.conf"
 
   docker exec $AMBARI_SERVER_NAME  sh -c "cat /etc/resolv.conf"
-
-  # install sshpass, 需要有上网能力
-  docker exec $AMBARI_SERVER_NAME  sh -c "yum install -y sshpass"
 }
 
 
 amb-copy-ssh-ids() {
-  docker exec $AMBARI_SERVER_NAME  sh -c "ssh-keygen -f ~/.ssh/id_rsa -t rsa -N ''"
+  docker exec $AMBARI_SERVER_NAME  sh -c "echo -e  'y\n'|ssh-keygen -q -t rsa -N '' -f ~/.ssh/id_rsa"
+
   local agent_list=$(etcdctl ls /ips | grep amb'[0-9]')
   for i in $agent_list; do
     local agent_ip=$(etcdctl get $i)
@@ -152,7 +150,7 @@ amb-clean-etcd() {
 
 # server passwdless login to agents
 amb-ssh-passwdless() {
-  amb-net-install-sshpass
+  amb-config-nameserver
   amb-copy-ssh-ids
 }
 
@@ -400,6 +398,11 @@ amb-start-cluster() {
 
       ((count+=1))
   done
+
+  sleep 10
+
+  echo "config agent passwdless......"
+  amb-ssh-passwdless
 }
 
 amb-clean-agent() {
