@@ -54,8 +54,12 @@ etcd-start() {
     # local listen_ip=$(ip addr | grep inet | grep $connect_net_interface | awk -F" " '{print $2}'| sed -e 's/\/.*$//')
 }
 
+_get-first-host() {
+    $(echo $HOST_FOR_LIST | awk '{print $1}')
+}
+
 _get-first-host-ip() {
-    local host=$(echo $HOST_FOR_LIST | awk '{print $1}')
+    local host=$(_get-first-host)
     grep -i $host /etc/hosts | awk '{print $1}'
 }
 
@@ -114,6 +118,27 @@ _local_calico_start() {
 
 }
 
+_config-calico-profile() {
+    cat << EOF | calicoctl apply -f -
+    - apiVersion: v1
+      kind: profile
+      metadata:
+        name: $CALICO_NET
+        tags:
+        - $CALICO_NET
+      spec:
+        egress:
+        - action: allow
+          destination: {}
+          source: {}
+        ingress:
+        - action: allow
+          protocol: tcp
+          destination: {}
+          source: {}
+    EOF
+}
+
 
 calico-start() {
     if [ -e ./calicoctl ]; then
@@ -141,7 +166,11 @@ calico-start() {
 
     done
 
-    calicoctl node status
+    sleep 5
+
+    pdsh -w $(_get-first-host) bash ~/$0 _config-calico-profile
+
+    pdsh -w $(_get-first-host) bash calicoctl node status
 }
 
 calico-create-net() {
