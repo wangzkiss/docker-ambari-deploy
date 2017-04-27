@@ -77,6 +77,7 @@ etcd-config-docker-daemon() {
 
     pdsh -w $HOST_LIST bash ~/$0 _config-docker-daemon $(_get-first-host-ip)
 
+    echo "restarting docker daemon......"
     pdsh -w $HOST_LIST systemctl restart docker
 
 }
@@ -176,7 +177,7 @@ calico-start() {
 
     pdsh -w $(_get-first-host) bash ~/$0 _config-calico-profile
 
-    pdsh -w $(_get-first-host) bash calicoctl node status
+    pdsh -w $(_get-first-host) calicoctl node status
 }
 
 calico-create-net() {
