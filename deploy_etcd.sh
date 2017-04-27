@@ -119,24 +119,24 @@ _local_calico_start() {
 }
 
 _config-calico-profile() {
-    cat << EOF | calicoctl apply -f -
-    - apiVersion: v1
-      kind: profile
-      metadata:
-        name: $CALICO_NET
-        tags:
-        - $CALICO_NET
-      spec:
-        egress:
-        - action: allow
-          destination: {}
-          source: {}
-        ingress:
-        - action: allow
-          protocol: tcp
-          destination: {}
-          source: {}
-    EOF
+cat << EOF | calicoctl apply -f -
+- apiVersion: v1
+  kind: profile
+  metadata:
+    name: $CALICO_NET
+    tags:
+    - $CALICO_NET
+  spec:
+    egress:
+    - action: allow
+      destination: {}
+      source: {}
+    ingress:
+    - action: allow
+      protocol: tcp
+      destination: {}
+      source: {}
+EOF
 }
 
 
