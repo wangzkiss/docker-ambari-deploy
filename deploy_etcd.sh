@@ -3,7 +3,6 @@
 : ${HOST_LIST:=docker-220,docker-222}
 # 通过 calico 配置的跨节点网络
 : ${CALICO_NET:=docker_test}
-
 : ${CALICO_CIDR:=192.0.2.0/24}
 
 # split by space
@@ -12,7 +11,6 @@ HOST_FOR_LIST=${HOST_LIST//,/ }
 etcd-install() {
     # wget https://github.com/coreos/etcd/releases/download/v3.1.5/etcd-v3.1.5-linux-amd64.tar.gz
     pdcp -w $HOST_LIST ./etcd-v3.1.5-linux-amd64.tar.gz ~
-
     pdsh -w $HOST_LIST tar -zxf ~/etcd-v3.1.5-linux-amd64.tar.gz
     pdsh -w $HOST_LIST mv -f ~/etcd-v3.1.5-linux-amd64/etcd* /usr/bin
 }
@@ -53,7 +51,6 @@ etcd-start() {
 
         ((count+=1))
     done
-    # local listen_ip=$(ip addr | grep inet | grep $connect_net_interface | awk -F" " '{print $2}'| sed -e 's/\/.*$//')
 }
 
 _get-first-host() {
@@ -76,12 +73,9 @@ _copy_this_sh() {
 
 etcd-config-docker-daemon() {
     _copy_this_sh
-
     pdsh -w $HOST_LIST bash ~/$0 _config-docker-daemon $(_get-first-host-ip)
-
     echo "restarting docker daemon......"
     pdsh -w $HOST_LIST systemctl restart docker
-
 }
 
 _config-docker-daemon() {
@@ -101,9 +95,7 @@ _config-docker-daemon() {
     else
         sed -i "s/OPTIONS='\(.*\)'/OPTIONS='\1 --cluster-store=etcd:\/\/${cluster_ip}:2379'/g" $docker_config
     fi
-
 }
-
 
 _local_calico_start() {
     local first_host_ip=$1
@@ -115,41 +107,29 @@ _local_calico_start() {
     else
         cluster_ip=$first_host_ip
     fi
-    # 默认的name 和hostName 一直，如果两台机器的hostName一致，则必须指定，不然bgp发现不了远端
+    # 默认的name 和hostName 一致，如果两台机器的hostName一致，则必须指定，不然bgp发现不了远端
     # ETCD_ENDPOINTS=http://${cluster_ip}:2379 calicoctl node run --ip=$host_ip --node-image calico/node --name node1
     ETCD_ENDPOINTS=http://${cluster_ip}:2379 calicoctl node run --ip=$host_ip --node-image calico/node
-
 }
 
 calico-start() {
-    if [ -e ./calicoctl ]; then
-        :
-    else
+    if [ ! -e ./calicoctl ]; then
         echo "downloading calicoctl ......"
         wget -O ./calicoctl https://github.com/projectcalico/calicoctl/releases/download/v1.1.3/calicoctl
     fi
-
     # open port:179 for BPG protocol (calico use for node communication)
     pdsh -w $HOST_LIST firewall-cmd --zone=public --add-port=179/tcp --permanent
-    pdsh -w $HOST_LIST firewall-cmd --reload
 
     pdcp -w $HOST_LIST ./calicoctl /usr/local/bin/calicoctl
-
     pdsh -w $HOST_LIST chmod +x /usr/local/bin/calicoctl
 
-    # 拷贝当前脚本
     _copy_this_sh
-
     for host in $HOST_FOR_LIST
     do
         local host_ip=$(grep -i $host /etc/hosts | awk '{print $1}')
-
         pdsh -w $host bash ~/$0 _local_calico_start $(_get-first-host-ip) $host_ip
-
     done
-
     sleep 5
-
     pdsh -w $(_get-first-host) calicoctl node status
 }
 
@@ -202,31 +182,24 @@ EOF
 
 calico-create-net() {
     docker network rm $CALICO_NET
-
     _calico-delete-ipPool
-    _calico-create-ipPool   
-    # 192.168.0.0/16 calico default CIDR
+    _calico-create-ipPool
     docker network create --driver calico --ipam-driver calico-ipam --subnet=$CALICO_CIDR $CALICO_NET
-
     _config-calico-profile
 }
 
 test-calico-net-conn() {
     pdsh -w $(_get-first-host-ip) docker stop workload-A workload-B
     pdsh -w $(_get-first-host-ip) docker rm workload-A workload-B
-
     pdsh -w $(_get-first-host-ip) docker run --net $CALICO_NET --name workload-A -tid busybox
     pdsh -w $(_get-first-host-ip) docker run --net $CALICO_NET --name workload-B -tid busybox
 
-
     pdsh -w $(_get-second-host-ip) docker stop workload-C
     pdsh -w $(_get-second-host-ip) docker rm workload-C
-
     pdsh -w $(_get-second-host-ip) docker run --net $CALICO_NET --name workload-C -tid busybox
 
     pdsh -w $(_get-first-host-ip) docker exec workload-A ping -c 4 workload-B.$CALICO_NET
     pdsh -w $(_get-first-host-ip) docker exec workload-A ping -c 4 workload-C.$CALICO_NET
-
 }
 
 _clean-all-container() {
@@ -236,13 +209,11 @@ _clean-all-container() {
 
 docker-stop-all() {
     _copy_this_sh
-
     pdsh -w $HOST_LIST bash ~/$0 _clean-all-container
 }
 
 main() {
     local cluster_size=${1:?"usege: main <ETCD_CLUSTER_SIZE>"}
-
     echo "docker-stop-all starting"
     docker-stop-all
     echo "etcd-install starting"
