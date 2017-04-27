@@ -176,7 +176,7 @@ _clean-all-container() {
 docker-stop-all() {
     _copy_this_sh
 
-    pdsh -w $host bash ~/$0 _clean-all-container
+    pdsh -w $HOST_LIST bash ~/$0 _clean-all-container
 }
 
 main() {
