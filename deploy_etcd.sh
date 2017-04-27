@@ -118,6 +118,11 @@ _local_calico_start() {
 
 }
 
+# ingress:
+#   source:
+#     tag: docker_test
+# 默认的配置，source 有tag现在，只允许相同网络互相访问
+# 外网无法访问 8080 端口
 _config-calico-profile() {
 cat << EOF | calicoctl apply -f -
 - apiVersion: v1
@@ -144,7 +149,7 @@ calico-start() {
     if [ -e ./calicoctl ]; then
         :
     else
-        wget -O ./calicoctl http://www.projectcalico.org/builds/calicoctl
+        wget -O ./calicoctl https://github.com/projectcalico/calicoctl/releases/download/v1.1.3/calicoctl
     fi
 
     # open port:179 for BPG protocol (calico use for node communication)
