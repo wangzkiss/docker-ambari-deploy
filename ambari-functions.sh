@@ -186,6 +186,7 @@ amb-publish-ambari-port() {
   firewall-cmd --reload
   iptables -A PREROUTING -t nat -i eth0 -p tcp --dport 8080 -j DNAT  --to ${AMBARI_SERVER_IP}:8080
   iptables -t nat -A OUTPUT -p tcp -o lo --dport 8080 -j DNAT --to-destination ${AMBARI_SERVER_IP}:8080
+  # TODO: need to save, in case of firewall-cmd --reload lost the dnat rules
 }
 
 amb-start-consul() {
