@@ -62,8 +62,12 @@ _get-first-host-ip() {
     grep -i $host /etc/hosts | awk '{print $1}'
 }
 
+_get-second-host() {
+    echo $HOST_FOR_LIST | awk '{print $2}'
+}
+
 _get-second-host-ip() {
-    local host=$(echo $HOST_FOR_LIST | awk '{print $2}')
+    local host=$(_get-second-host)
     grep -i $host /etc/hosts | awk '{print $2}'
 }
 
@@ -188,18 +192,28 @@ calico-create-net() {
     _config-calico-profile
 }
 
+_rm-workload-test-container() {
+    local host=$1
+    pdsh -w $host docker stop $(docker ps -a -q --filter="name=workload*")
+    pdsh -w $host docker rm $(docker ps -a -q --filter="name=workload*")
+}
+
 test-calico-net-conn() {
-    pdsh -w $(_get-first-host-ip) docker stop workload-A workload-B
-    pdsh -w $(_get-first-host-ip) docker rm workload-A workload-B
-    pdsh -w $(_get-first-host-ip) docker run --net $CALICO_NET --name workload-A -tid busybox
-    pdsh -w $(_get-first-host-ip) docker run --net $CALICO_NET --name workload-B -tid busybox
+    local first_host=$(_get-first-host)
+    local second_host=$(_get-second-host)
 
-    pdsh -w $(_get-second-host-ip) docker stop workload-C
-    pdsh -w $(_get-second-host-ip) docker rm workload-C
-    pdsh -w $(_get-second-host-ip) docker run --net $CALICO_NET --name workload-C -tid busybox
+    _rm-workload-test-container $first_host
+    pdsh -w $first_host docker run --net $CALICO_NET --name workload-A -tid busybox
+    pdsh -w $first_host docker run --net $CALICO_NET --name workload-B -tid busybox
 
-    pdsh -w $(_get-first-host-ip) docker exec workload-A ping -c 4 workload-B.$CALICO_NET
-    pdsh -w $(_get-first-host-ip) docker exec workload-A ping -c 4 workload-C.$CALICO_NET
+    _rm-workload-test-container $second_host
+    pdsh -w $second_host docker run --net $CALICO_NET --name workload-C -tid busybox
+
+    pdsh -w $first_host docker exec workload-A ping -c 4 workload-B.$CALICO_NET
+    pdsh -w $first_host docker exec workload-A ping -c 4 workload-C.$CALICO_NET
+
+    _rm-workload-test-container $first_host
+    _rm-workload-test-container $second_host
 }
 
 _clean-all-container() {
