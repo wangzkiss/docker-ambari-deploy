@@ -336,6 +336,8 @@ amb-start-cluster() {
   sleep 5
   echo "config agent passwdless......"
   pdsh -w $first_host bash ~/$0 amb-ssh-passwdless
+  echo "pring Ambari config settings"
+  amb-tool-get-all-setting
 }
 
 amb-clean-agent() {
