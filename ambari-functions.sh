@@ -340,7 +340,7 @@ amb-start-cluster() {
   pdsh -w $first_host bash ~/$0 amb-ssh-passwdless
   echo "test ambari started "
   amb-test-amb-server-start
-  echo "pring Ambari config settings"
+  echo "print Ambari config settings"
   amb-tool-get-all-setting
 }
 
