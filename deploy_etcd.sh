@@ -194,8 +194,8 @@ calico-create-net() {
 
 _rm-workload-test-container() {
     local host=$1
-    pdsh -w $host docker stop $(docker ps -a -q --filter="name=workload*")
-    pdsh -w $host docker rm $(docker ps -a -q --filter="name=workload*")
+    pdsh -w $host docker stop '$(docker ps -a -q --filter="name=workload*")'
+    pdsh -w $host docker rm '$(docker ps -a -q --filter="name=workload*")'
 }
 
 test-calico-net-conn() {
