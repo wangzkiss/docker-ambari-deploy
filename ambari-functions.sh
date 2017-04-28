@@ -188,6 +188,7 @@ amb-get-consul-ip() {
 }
 
 amb-publish-ambari-port() {
+  firewall-cmd --reload
   iptables -A PREROUTING -t nat -i eth0 -p tcp --dport 8080 -j DNAT  --to ${AMBARI_SERVER_IP}:8080
   iptables -t nat -A OUTPUT -p tcp -o lo --dport 8080 -j DNAT --to-destination ${AMBARI_SERVER_IP}:8080
 }
@@ -218,6 +219,10 @@ amb-start-ambari-server() {
 
   _consul-register-service $AMBARI_SERVER_NAME $AMBARI_SERVER_IP
   _consul-register-service ambari-8080 $AMBARI_SERVER_IP
+
+  echo "replacing ambari.repo url"
+  # agent register will copy ambari.repo from server
+  amb-replace-ambari-url $AMBARI_SERVER_NAME
 }
 
 amb-start-server() {
@@ -253,9 +258,6 @@ amb-start-node() {
 
   # set password to agent, for server ssh
   docker exec ${NODE_PREFIX}$NUMBER sh -c " echo Zasd_1234 | passwd root --stdin "
-
-  echo "##################### replace ambari.repo url #########################"
-  amb-replace-ambari-url ${NODE_PREFIX}$NUMBER
 }
 
 _consul-register-service() {
@@ -307,6 +309,16 @@ amb-tool-get-HDP-url() {
   local httpd_ip=$(get-host-ip $HTTPD_NAME)
   echo "http://${httpd_ip}/HDP/centos7/2.x/updates/2.4.0.0"
   echo "http://${httpd_ip}/HDP-UTILS-1.1.0.20/repos/centos7"
+}
+
+amb-tool-get-all-setting() {
+  echo "=============HDP url============="
+  amb-tool-get-HDP-url
+  echo "=============agent host list============="
+  amb-tool-get-agent-host-list
+  echo "=============server sshkey============="
+  amb-tool-get-server-sshkey
+  echo "=========================="
 }
 
 _copy_this_sh() {
