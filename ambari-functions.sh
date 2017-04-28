@@ -1,11 +1,4 @@
-:<<USAGE
-########################################
-curl -Lo .amb j.mp/docker-ambari && . .amb
-########################################
-
-full documentation: https://github.com/sequenceiq/docker-ambari
-USAGE
-
+#!/usr/bin/bash
 : ${NODE_PREFIX=amb}
 : ${AMBARI_SERVER_NAME:=${NODE_PREFIX}-server}
 : ${AMBARI_SERVER_IMAGE:="registry.cn-hangzhou.aliyuncs.com/tospur/amb-server:latest"}
@@ -26,12 +19,10 @@ USAGE
 : ${HDP_HOST_DIR:=/home/hdp_httpd_home/}
 # HDP httpd service name
 : ${HTTPD_NAME:=httpd}
-
 : ${HOST_LIST:=docker-220,docker-222}
 
 # split by space
 HOST_FOR_LIST=${HOST_LIST//,/ }
-
 
 amb-settings() {
   cat <<EOF
@@ -95,6 +86,10 @@ set-host-ip() {
   HOST=$1
   IP=$(docker inspect --format="{{.NetworkSettings.Networks.${CALICO_NET}.IPAddress}}" ${HOST})
   etcdctl set /ips/${HOST} ${IP}
+}
+
+_get-first-host() {
+    echo $HOST_FOR_LIST | awk '{print $1}'
 }
 
 amb-members() {
@@ -293,7 +288,6 @@ amb-replace-ambari-url() {
   docker exec $NODE_NAME sh -c "cat /etc/yum.repos.d/ambari.repo"
 }
 
-
 amb-tool-get-server-sshkey() {
   docker exec ${AMBARI_SERVER_NAME}  sh -c "cat ~/.ssh/id_rsa"
 }
@@ -328,23 +322,20 @@ _copy_this_sh() {
 # 启动集群
 amb-start-cluster() {
   local agents_per_host=${1:?"usage: AGENTS_PER_HOST"}
-  local count=0
+  local first_host=$(_get-first-host)
 
   _copy_this_sh
+
+  pdsh -w $first_host bash ~/$0 amb-start-server
+  sleep 5
   for host in $HOST_FOR_LIST
   do
-    if [ $count -eq 0 ];then
-      pdsh -w $host bash ~/$0 amb-start-server
-    fi
-    sleep 5
     pdsh -w $host bash ~/$0 amb-start-agent $agents_per_host
-
-    ((count+=1))
   done
 
-  sleep 10
+  sleep 5
   echo "config agent passwdless......"
-  amb-ssh-passwdless
+  pdsh -w $first_host bash ~/$0 amb-ssh-passwdless
 }
 
 amb-clean-agent() {
