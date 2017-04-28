@@ -214,10 +214,6 @@ amb-start-ambari-server() {
 
   _consul-register-service $AMBARI_SERVER_NAME $AMBARI_SERVER_IP
   _consul-register-service ambari-8080 $AMBARI_SERVER_IP
-
-  echo "replacing ambari.repo url"
-  # agent register will copy ambari.repo from server
-  amb-replace-ambari-url $AMBARI_SERVER_NAME
 }
 
 amb-start-server() {
@@ -226,6 +222,9 @@ amb-start-server() {
   amb-start-ambari-server
   sleep 5
   amb-start-HDP-httpd
+  echo "replacing ambari.repo url"
+  # agent register will copy ambari.repo from server
+  amb-replace-ambari-url $AMBARI_SERVER_NAME
 }
 
 amb-start-node() {
@@ -336,6 +335,8 @@ amb-start-cluster() {
   sleep 5
   echo "config agent passwdless......"
   pdsh -w $first_host bash ~/$0 amb-ssh-passwdless
+  echo "test ambari started "
+  amb-test-amb-server-start
   echo "pring Ambari config settings"
   amb-tool-get-all-setting
 }
@@ -365,6 +366,18 @@ amb-clean-cluster() {
     pdsh -w $host bash ~/$0 amb-clean-agent
 
     ((count+=1))
+  done
+}
+
+amb-test-amb-server-start() {
+  get-ambari-server-ip
+
+  while [ 1 -eq 1 ]; do
+    if curl ${AMBARI_SERVER_IP}:8080; then
+      break
+    else
+      sleep 5
+    fi
   done
 }
 
