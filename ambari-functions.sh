@@ -322,7 +322,10 @@ _copy_this_sh() {
 amb-start-cluster() {
   local agents_per_host=${1:?"usage: AGENTS_PER_HOST"}
   local first_host=$(_get-first-host)
+  echo "First clean cluster ......"
+  amb-clean-cluster
 
+  echo 'Now starting the cluster ......'
   _copy_this_sh
 
   pdsh -w $first_host bash ~/$0 amb-start-server
