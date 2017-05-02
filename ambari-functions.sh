@@ -209,6 +209,8 @@ amb-start-consul() {
 
 
 amb-start-ambari-server() {
+  rm -rf $HADOOP_LOG/$AMBARI_SERVER_NAME
+  
   echo "starting amb-server"
   run-command docker run -d $DOCKER_OPTS --net ${CALICO_NET} \
               --privileged --name $AMBARI_SERVER_NAME \
@@ -248,6 +250,8 @@ amb-start-node() {
     shift
     MORE_OPTIONS="$@"
   fi
+  # remove data && log dir
+  rm -rf $HADOOP_DATA/${NODE_PREFIX}$NUMBER && rm -rf $HADOOP_LOG/${NODE_PREFIX}$NUMBER
 
   run-command docker run $MORE_OPTIONS $DOCKER_OPTS --privileged --net ${CALICO_NET} --name ${NODE_PREFIX}$NUMBER \
               -v $HADOOP_DATA/${NODE_PREFIX}$NUMBER:/hadoop -v $HADOOP_LOG/${NODE_PREFIX}$NUMBER:/var/log \
