@@ -255,7 +255,7 @@ amb-start-node() {
   docker exec ${NODE_PREFIX}$NUMBER sh -c " echo Zasd_1234 | passwd root --stdin "
 
   # Not use centos repo search for yum install, just use Ambari server copy HDP.repo HDF-UTIL-*.repo ambari.repo
-  docker exec ${NODE_PREFIX}$NUMBER sh -c " mkdir -p /etc/yum.repos.d/bak && mv /etc/yum.repos.d/*.repo /etc/yum.repos.d/bak/ "
+  # docker exec ${NODE_PREFIX}$NUMBER sh -c " mkdir -p /etc/yum.repos.d/bak && mv /etc/yum.repos.d/*.repo /etc/yum.repos.d/bak/ "
 
   /etc/yum.repos.d
 }
