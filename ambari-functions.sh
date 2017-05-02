@@ -21,6 +21,10 @@
 : ${HTTPD_NAME:=httpd}
 : ${HOST_LIST:=docker-220,docker-222}
 
+# docker volume mount to docker
+: ${HADOOP_DATA:=/home/hadoop_data}
+: ${HADOOP_LOG:=/home/hadoop_log}
+
 # split by space
 HOST_FOR_LIST=${HOST_LIST//,/ }
 
@@ -179,7 +183,7 @@ amb-get-consul-ip() {
   docker run --net $CALICO_NET --name $CONSUL -tid  busybox
   set-consul-ip
   get-consul-ip
-  docker stop $CONSUL && docker rm $CONSUL
+  docker stop $CONSUL && docker rm -v $CONSUL
 }
 
 amb-publish-ambari-port() {
@@ -207,7 +211,9 @@ amb-start-consul() {
 amb-start-ambari-server() {
   echo "starting amb-server"
   run-command docker run -d $DOCKER_OPTS --net ${CALICO_NET} \
-              --privileged --name $AMBARI_SERVER_NAME -h $AMBARI_SERVER_NAME.service.consul $AMBARI_SERVER_IMAGE \
+              --privileged --name $AMBARI_SERVER_NAME \
+              -v $HADOOP_LOG/$AMBARI_SERVER_NAME:/var/log \
+              -h $AMBARI_SERVER_NAME.service.consul $AMBARI_SERVER_IMAGE \
               systemd.setenv=NAMESERVER_ADDR=$CONSUL_IP
   set-ambari-server-ip
   get-ambari-server-ip
@@ -244,6 +250,7 @@ amb-start-node() {
   fi
 
   run-command docker run $MORE_OPTIONS $DOCKER_OPTS --privileged --net ${CALICO_NET} --name ${NODE_PREFIX}$NUMBER \
+              -v $HADOOP_DATA/${NODE_PREFIX}$NUMBER:/hadoop -v $HADOOP_LOG/${NODE_PREFIX}$NUMBER:/var/log \
               -h ${NODE_PREFIX}${NUMBER}.service.consul $AMBARI_AGENT_IMAGE \
               systemd.setenv=NAMESERVER_ADDR=$CONSUL_IP
 
@@ -352,12 +359,12 @@ amb-start-cluster() {
 
 amb-clean-agent() {
   docker stop $(docker ps -a -q -f "name=${NODE_PREFIX}*")
-  docker rm $(docker ps -a -q -f "name=${NODE_PREFIX}*")
+  docker rm -v $(docker ps -a -q -f "name=${NODE_PREFIX}*")
 }
 
 amb-clean-server() {
   docker stop $AMBARI_SERVER_NAME $CONSUL $HTTPD_NAME
-  docker rm $AMBARI_SERVER_NAME $CONSUL $HTTPD_NAME
+  docker rm -v $AMBARI_SERVER_NAME $CONSUL $HTTPD_NAME
 }
 
 amb-clean-cluster() {
