@@ -123,6 +123,7 @@ calico-start() {
     fi
     # open port:179 for BPG protocol (calico use for node communication)
     pdsh -w $HOST_LIST firewall-cmd --zone=public --add-port=179/tcp --permanent
+    pdsh -w $HOST_LIST firewall-cmd --reload
 
     pdcp -w $HOST_LIST ./calicoctl /usr/local/bin/calicoctl
     pdsh -w $HOST_LIST chmod +x /usr/local/bin/calicoctl
