@@ -1,12 +1,11 @@
 #!/usr/bin/bash
-# 必须配置好，本地host文件
-: ${HOST_LIST:=docker-220,docker-222}
+
+# import common variable
+. ./env.sh
+
 # 通过 calico 配置的跨节点网络
 : ${CALICO_NET:=docker_test}
 : ${CALICO_CIDR:=192.0.2.0/24}
-
-# split by space
-HOST_FOR_LIST=${HOST_LIST//,/ }
 
 etcd-install() {
     # wget https://github.com/coreos/etcd/releases/download/v3.1.5/etcd-v3.1.5-linux-amd64.tar.gz

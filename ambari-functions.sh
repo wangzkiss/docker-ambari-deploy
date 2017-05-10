@@ -1,4 +1,8 @@
 #!/usr/bin/bash
+
+# import common variable
+. ./env.sh
+
 : ${NODE_PREFIX=amb}
 : ${AMBARI_SERVER_NAME:=${NODE_PREFIX}-server}
 : ${AMBARI_SERVER_IMAGE:="registry.cn-hangzhou.aliyuncs.com/tospur/amb-server:latest"}
@@ -19,14 +23,11 @@
 : ${HDP_HOST_DIR:=/home/hdp_httpd_home/}
 # HDP httpd service name
 : ${HTTPD_NAME:=httpd}
-: ${HOST_LIST:=docker-220,docker-222}
 
 # docker volume mount to docker
 : ${HADOOP_DATA:=/home/hadoop_data}
 : ${HADOOP_LOG:=/home/hadoop_log}
 
-# split by space
-HOST_FOR_LIST=${HOST_LIST//,/ }
 
 amb-settings() {
   cat <<EOF
