@@ -12,7 +12,6 @@ _change-ip() {
     sed -i "s/BOOTPROTO=.*/BOOTPROTO=static/g" /etc/sysconfig/network-scripts/ifcfg-eth0
 
     for ele in DNS1 GATEWAY IPADDR; do
-
         if cat /etc/sysconfig/network-scripts/ifcfg-eth0 | grep $ele; then
             sed -i "s/$ele=.*/$ele=${!ele}/g" /etc/sysconfig/network-scripts/ifcfg-eth0
         else
@@ -31,9 +30,7 @@ pre-network() {
     local ip_addr=${2:?"Usage: main <HOST-NAME> <IP-ADDR>"}
 
     _set-hostname $host_name
-
     _change-ip 172.18.84.254 $ip_addr
-
     systemctl restart network
 }
 
@@ -49,12 +46,20 @@ ssh-passwd-less() {
     done
 }
 
-pre-software() {
-    yum install -y epel-release sshpass pdsh git
-
-    ssh-passwd-less
-
+_config-docker() {
     pdsh -w $HOST_LIST yum install -y epel-release docker-io
+    
+    pdsh -w $HOST_LIST echo '{
+    "live-restore": true,
+    "registry-mirrors": ["https://80kate9y.mirror.aliyuncs.com"]
+}' > /etc/docker/daemon.json
+    pdsh -w $HOST_LIST systemctl restart docker
+}
+
+pre-deploy() {
+    yum install -y epel-release sshpass pdsh git
+    ssh-passwd-less
+    _config-docker
 }
 
 $@

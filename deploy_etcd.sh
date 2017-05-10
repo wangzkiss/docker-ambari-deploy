@@ -3,12 +3,10 @@
 # import common variable
 . ./env.sh
 
-# 通过 calico 配置的跨节点网络
-: ${CALICO_NET:=docker_test}
-: ${CALICO_CIDR:=192.0.2.0/24}
-
 etcd-install() {
-    # wget https://github.com/coreos/etcd/releases/download/v3.1.5/etcd-v3.1.5-linux-amd64.tar.gz
+    wget -O ./etcd-v3.1.5-linux-amd64.tar.gz \ 
+            https://github.com/coreos/etcd/releases/download/v3.1.5/etcd-v3.1.5-linux-amd64.tar.gz
+
     pdcp -w $HOST_LIST ./etcd-v3.1.5-linux-amd64.tar.gz ~
     pdsh -w $HOST_LIST tar -zxf ~/etcd-v3.1.5-linux-amd64.tar.gz
     pdsh -w $HOST_LIST mv -f ~/etcd-v3.1.5-linux-amd64/etcd* /usr/bin
@@ -16,6 +14,7 @@ etcd-install() {
 
 etcd-open-ports() {
     pdsh -w $HOST_LIST firewall-cmd --zone=public --add-port=2380/tcp --permanent
+    pdsh -w $HOST_LIST firewall-cmd --zone=public --add-port=2379/tcp --permanent
     pdsh -w $HOST_LIST firewall-cmd --reload
 }
 
@@ -41,12 +40,25 @@ etcd-start() {
         # stop it first
         pdsh -w $host bash ~/$0 _stop-etcd-progress
 
+        # pdsh -w $host ETCD_DISCOVERY=${token} \
+        # nohup etcd -name etcd-$host \
+        #       -initial-advertise-peer-urls http://${host_ip}:2380 \
+        #       -listen-peer-urls http://${host_ip}:2380 \
+        #       -listen-client-urls http://${host_ip}:2379,http://127.0.0.1:2379 \
+        #       -advertise-client-urls http://${host_ip}:2379 \
+        #       -discovery ${token} > ~/etcd.log &
+
         pdsh -w $host ETCD_DISCOVERY=${token} \
-        nohup etcd -name etcd-$host -initial-advertise-peer-urls http://${host_ip}:2380 \
-              -listen-peer-urls http://${host_ip}:2380 \
-              -listen-client-urls http://${host_ip}:2379,http://127.0.0.1:2379 \
-              -advertise-client-urls http://${host_ip}:2379 \
-              -discovery ${token} > ~/etcd.log &
+            docker run -d -v /usr/share/ca-certificates/:/etc/ssl/certs -p 2380:2380 -p 2379:2379 \
+                 --name etcd quay.io/coreos/etcd \
+                 -name etcd-$host \
+                 -advertise-client-urls http://${host_ip}:2379 \
+                 -listen-client-urls http://${host_ip}:2379,http://127.0.0.1:2379 \
+                 -initial-advertise-peer-urls http://${host_ip}:2380 \
+                 -listen-peer-urls http://${host_ip}:2380 \
+                 -discovery ${token}
+
+
 
         ((count+=1))
     done
@@ -231,7 +243,7 @@ main() {
     echo "docker-stop-all starting"
     docker-stop-all
     echo "etcd-install starting"
-    etcd-install
+    # etcd-install
     echo "etcd-open-ports starting"
     etcd-open-ports
     echo "etcd-start $cluster_size starting"
