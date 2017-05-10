@@ -47,7 +47,7 @@ ssh-passwd-less() {
 }
 
 _config-docker() {
-    pdsh -w $HOST_LIST yum install -y epel-release docker-io
+    pdsh -w $HOST_LIST yum install -y epel-release pdsh docker-io
 
     pdsh -w $HOST_LIST "echo '{
     \"live-restore\": true,
