@@ -50,15 +50,13 @@ etcd-start() {
 
         pdsh -w $host ETCD_DISCOVERY=${token} \
             docker run -d -v /usr/share/ca-certificates/:/etc/ssl/certs -p 2380:2380 -p 2379:2379 \
-                 --name etcd quay.io/coreos/etcd \
+                 --name etcd elcolio/etcd:latest \
                  -name etcd-$host \
                  -advertise-client-urls http://${host_ip}:2379 \
                  -listen-client-urls http://${host_ip}:2379,http://127.0.0.1:2379 \
                  -initial-advertise-peer-urls http://${host_ip}:2380 \
                  -listen-peer-urls http://${host_ip}:2380 \
                  -discovery ${token}
-
-
 
         ((count+=1))
     done
@@ -83,6 +81,7 @@ _get-second-host-ip() {
 }
 
 _copy_this_sh() {
+    _copy_env_sh
     pdcp -w $HOST_LIST $0 ~
 }
 

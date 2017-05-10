@@ -14,3 +14,9 @@
 
 # split by space
 HOST_FOR_LIST=${HOST_LIST//,/ }
+
+
+_copy_env_sh() {
+    echo "env sh $0 ............."
+    pdcp -w $HOST_LIST $0 ~
+}
