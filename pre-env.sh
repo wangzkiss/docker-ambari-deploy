@@ -48,11 +48,11 @@ ssh-passwd-less() {
 
 _config-docker() {
     pdsh -w $HOST_LIST yum install -y epel-release docker-io
-    
-    pdsh -w $HOST_LIST echo '{
-    "live-restore": true,
-    "registry-mirrors": ["https://80kate9y.mirror.aliyuncs.com"]
-}' > /etc/docker/daemon.json
+
+    pdsh -w $HOST_LIST echo "'{
+    \"live-restore\": true,
+    \"registry-mirrors\": [\"https://80kate9y.mirror.aliyuncs.com\"]
+}'" > /etc/docker/daemon.json
     pdsh -w $HOST_LIST systemctl restart docker
 }
 
