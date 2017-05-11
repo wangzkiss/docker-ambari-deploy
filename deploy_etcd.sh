@@ -22,45 +22,62 @@ _stop-etcd-progress() {
     ps -ef | grep 'etcd -name'| grep -v grep | awk '{print $2}' | xargs kill -9
 }
 
-etcd-start() {
-    # todo: open port 2380, 2379
-    local cluster_size=${1:?"usege: etcd-start <CLUSTER_SIZE>"}
-    local token=$(curl "https://discovery.etcd.io/new?size=$cluster_size")
 
+etcd-start() {
+    local host_num=$(awk '{print NF}' <<< "$HOST_FOR_LIST")
+
+    if [ $host_num -lt 3 ]; then
+        one-etcd-start
+    else
+        three-etcd-start
+    fi
+}
+
+one-etcd-start() {
+    local first_host=$(awk '{print $1}' <<< "$HOST_FOR_LIST")
+    local host_ip=$(grep -i $first_host /etc/hosts | awk '{print $1}')
+
+    pdsh -w $first_host \
+        docker run -d -v /usr/share/ca-certificates/:/etc/ssl/certs -p 4001:4001 -p 2380:2380 -p 2379:2379 \
+         --name etcd twang2218/etcd:v2.3.7 \
+         -name etcd0 \
+         -advertise-client-urls http://$host_ip:2379,http://$host_ip:4001 \
+         -listen-client-urls http://0.0.0.0:2379,http://0.0.0.0:4001 \
+         -initial-advertise-peer-urls http://$host_ip:2380 \
+         -listen-peer-urls http://0.0.0.0:2380 \
+         -initial-cluster-token etcd-cluster-1 \
+         -initial-cluster etcd0=http://$host_ip:2380 \
+         -initial-cluster-state new
+}
+
+three-etcd-start() {
     _copy_this_sh
 
-    local count=0
-    for host in $HOST_FOR_LIST
-    do
-        if [ $count -eq $cluster_size ];then
-            break
-        fi
+    local host1=$(awk '{print $1}' <<< "$HOST_FOR_LIST")
+    local host2=$(awk '{print $2}' <<< "$HOST_FOR_LIST")
+    local host3=$(awk '{print $3}' <<< "$HOST_FOR_LIST")
 
-        local host_ip=$(grep -i $host /etc/hosts | awk '{print $1}')
-        # stop it first
-        pdsh -w $host bash ~/$0 _stop-etcd-progress
+    local host1_ip=$(grep -i ${host1} /etc/hosts | awk '{print $1}')
+    local host2_ip=$(grep -i ${host2} /etc/hosts | awk '{print $1}')
+    local host3_ip=$(grep -i ${host3} /etc/hosts | awk '{print $1}')
 
-        # pdsh -w $host ETCD_DISCOVERY=${token} \
-        # nohup etcd -name etcd-$host \
-        #       -initial-advertise-peer-urls http://${host_ip}:2380 \
-        #       -listen-peer-urls http://${host_ip}:2380 \
-        #       -listen-client-urls http://${host_ip}:2379,http://127.0.0.1:2379 \
-        #       -advertise-client-urls http://${host_ip}:2379 \
-        #       -discovery ${token} > ~/etcd.log &
+    for host in host1 host2 host3; do
+        local host_ip=$(grep -i ${!host} /etc/hosts | awk '{print $1}')
 
-        pdsh -w $host ETCD_DISCOVERY=${token} \
-            docker run -d -v /usr/share/ca-certificates/:/etc/ssl/certs -p 2380:2380 -p 2379:2379 \
-                 --name etcd elcolio/etcd:latest \
-                 -name etcd-$host \
-                 -advertise-client-urls http://${host_ip}:2379 \
-                 -listen-client-urls http://${host_ip}:2379,http://127.0.0.1:2379 \
-                 -initial-advertise-peer-urls http://${host_ip}:2380 \
-                 -listen-peer-urls http://${host_ip}:2380 \
-                 -discovery ${token}
-
-        ((count+=1))
+        echo pdsh -w ${!host} \
+            docker run -d -v /usr/share/ca-certificates/:/etc/ssl/certs -p 4001:4001 -p 2380:2380 -p 2379:2379 \
+             --name etcd twang2218/etcd:v2.3.7  \
+             -name etcd${host: -1} \
+             -advertise-client-urls http://$host_ip:2379,http://$host_ip:4001 \
+             -listen-client-urls http://0.0.0.0:2379,http://0.0.0.0:4001 \
+             -initial-advertise-peer-urls http://$host_ip:2380 \
+             -listen-peer-urls http://0.0.0.0:2380 \
+             -initial-cluster-token etcd-cluster-1 \
+             -initial-cluster etcd0=http://$host1_ip:2380,etcd1=http://$host2_ip:2380,etcd2=http://$host3_ip:2380 \
+             -initial-cluster-state new
     done
 }
+
 
 _get-first-host() {
     echo $HOST_FOR_LIST | awk '{print $1}'
