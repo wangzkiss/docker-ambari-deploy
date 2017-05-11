@@ -64,20 +64,19 @@ three-etcd-start() {
     for host in host1 host2 host3; do
         local host_ip=$(grep -i ${!host} /etc/hosts | awk '{print $1}')
 
-        echo pdsh -w ${!host} \
-            docker run -d -v /usr/share/ca-certificates/:/etc/ssl/certs -p 4001:4001 -p 2380:2380 -p 2379:2379 \
-             --name etcd twang2218/etcd:v2.3.7  \
+        pdsh -w ${!host} \
+            "docker run -d -v /usr/share/ca-certificates/:/etc/ssl/certs -p 4001:4001 -p 2380:2380 -p 2379:2379 \
+             --name etcd twang2218/etcd:v3.0.0  \
              -name etcd${host: -1} \
              -advertise-client-urls http://$host_ip:2379,http://$host_ip:4001 \
              -listen-client-urls http://0.0.0.0:2379,http://0.0.0.0:4001 \
              -initial-advertise-peer-urls http://$host_ip:2380 \
              -listen-peer-urls http://0.0.0.0:2380 \
              -initial-cluster-token etcd-cluster-1 \
-             -initial-cluster etcd0=http://$host1_ip:2380,etcd1=http://$host2_ip:2380,etcd2=http://$host3_ip:2380 \
-             -initial-cluster-state new
+             -initial-cluster etcd1=http://$host1_ip:2380,etcd2=http://$host2_ip:2380,etcd3=http://$host3_ip:2380 \
+             -initial-cluster-state new"
     done
 }
-
 
 _get-first-host() {
     echo $HOST_FOR_LIST | awk '{print $1}'
