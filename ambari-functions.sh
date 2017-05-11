@@ -326,9 +326,9 @@ amb-tool-get-all-setting() {
 }
 
 _copy_this_sh() {
+    _copy_env_sh
     pdcp -w $HOST_LIST $0 ~
 }
-
 
 _check-input() {
     read -p "Please input HDP, HDP-UTIL package path, default:$HDP_PKG_DIR, input:" INPUT
