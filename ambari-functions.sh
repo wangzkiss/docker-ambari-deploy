@@ -329,10 +329,37 @@ _copy_this_sh() {
     pdcp -w $HOST_LIST $0 ~
 }
 
+
+_check-input() {
+    read -p "Please input HDP, HDP-UTIL package path, default:$HDP_PKG_DIR, input:" INPUT
+    if [ "$INPUT" != "" ];then
+        HDP_PKG_DIR=$INPUT
+    fi
+    if [ ! -d "$HDP_PKG_DIR" ];then
+      echo "$HDP_PKG_DIR doesn't exist"
+      exit
+    fi
+    echo $HDP_PKG_DIR
+    read -p "Please input Hadoop data storage dir, default:$HADOOP_DATA, input:" INPUT
+    if [ "$INPUT" != "" ];then
+        HADOOP_DATA=$INPUT
+    fi
+    echo $HADOOP_DATA
+    read -p "Please input Hadoop log dir, default:$HADOOP_LOG, input:" INPUT
+    if [ "$INPUT" != "" ];then
+        HADOOP_LOG=$INPUT
+    fi
+    echo $HADOOP_LOG
+}
+
+
 # 启动集群
 amb-start-cluster() {
   local agents_per_host=${1:?"usage: AGENTS_PER_HOST"}
   local first_host=$(_get-first-host)
+
+  _check-input
+
   echo "First clean cluster ......"
   amb-clean-cluster
 
