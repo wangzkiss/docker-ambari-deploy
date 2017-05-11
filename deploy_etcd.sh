@@ -3,15 +3,6 @@
 # import common variable
 . ./env.sh
 
-etcd-install() {
-    wget -O ./etcd-v3.1.5-linux-amd64.tar.gz \ 
-            https://github.com/coreos/etcd/releases/download/v3.1.5/etcd-v3.1.5-linux-amd64.tar.gz
-
-    pdcp -w $HOST_LIST ./etcd-v3.1.5-linux-amd64.tar.gz ~
-    pdsh -w $HOST_LIST tar -zxf ~/etcd-v3.1.5-linux-amd64.tar.gz
-    pdsh -w $HOST_LIST mv -f ~/etcd-v3.1.5-linux-amd64/etcd* /usr/bin
-}
-
 etcd-open-ports() {
     pdsh -w $HOST_LIST firewall-cmd --zone=public --add-port=2380/tcp --permanent
     pdsh -w $HOST_LIST firewall-cmd --zone=public --add-port=2379/tcp --permanent
@@ -38,16 +29,16 @@ one-etcd-start() {
     local host_ip=$(grep -i $first_host /etc/hosts | awk '{print $1}')
 
     pdsh -w $first_host \
-        docker run -d -v /usr/share/ca-certificates/:/etc/ssl/certs -p 4001:4001 -p 2380:2380 -p 2379:2379 \
+        "docker run -d -v /usr/share/ca-certificates/:/etc/ssl/certs -p 2380:2380 -p 2379:2379 \
          --name etcd twang2218/etcd:v2.3.7 \
-         -name etcd0 \
-         -advertise-client-urls http://$host_ip:2379,http://$host_ip:4001 \
-         -listen-client-urls http://0.0.0.0:2379,http://0.0.0.0:4001 \
+         -name etcd1 \
+         -advertise-client-urls http://$host_ip:2379 \
+         -listen-client-urls http://0.0.0.0:2379 \
          -initial-advertise-peer-urls http://$host_ip:2380 \
          -listen-peer-urls http://0.0.0.0:2380 \
          -initial-cluster-token etcd-cluster-1 \
-         -initial-cluster etcd0=http://$host_ip:2380 \
-         -initial-cluster-state new
+         -initial-cluster etcd1=http://$host_ip:2380 \
+         -initial-cluster-state new"
 }
 
 three-etcd-start() {
@@ -65,17 +56,45 @@ three-etcd-start() {
         local host_ip=$(grep -i ${!host} /etc/hosts | awk '{print $1}')
 
         pdsh -w ${!host} \
-            "docker run -d -v /usr/share/ca-certificates/:/etc/ssl/certs -p 4001:4001 -p 2380:2380 -p 2379:2379 \
-             --name etcd twang2218/etcd:v3.0.0  \
+            "docker run -d -v /usr/share/ca-certificates/:/etc/ssl/certs -p 2380:2380 -p 2379:2379 \
+             --name etcd twang2218/etcd:v2.3.7  \
              -name etcd${host: -1} \
-             -advertise-client-urls http://$host_ip:2379,http://$host_ip:4001 \
-             -listen-client-urls http://0.0.0.0:2379,http://0.0.0.0:4001 \
+             -advertise-client-urls http://$host_ip:2379 \
+             -listen-client-urls http://0.0.0.0:2379 \
              -initial-advertise-peer-urls http://$host_ip:2380 \
              -listen-peer-urls http://0.0.0.0:2380 \
              -initial-cluster-token etcd-cluster-1 \
              -initial-cluster etcd1=http://$host1_ip:2380,etcd2=http://$host2_ip:2380,etcd3=http://$host3_ip:2380 \
              -initial-cluster-state new"
     done
+}
+
+_get-etcd-ip-list() {
+    local input_type=${1:?"Usage:_get-etcd-ip-list <TYPE>(etcd,http)"}
+    local host_num=$(awk '{print NF}' <<< "$HOST_FOR_LIST")
+
+    local host1=$(awk '{print $1}' <<< "$HOST_FOR_LIST")
+    local host1_ip=$(grep -i ${host1} /etc/hosts | awk '{print $1}')
+
+    local result=""
+
+    if [ $host_num -lt 3 ]; then
+        result="etcd://${host1_ip}:2379"
+    else
+        local host2=$(awk '{print $2}' <<< "$HOST_FOR_LIST")
+        local host3=$(awk '{print $3}' <<< "$HOST_FOR_LIST")
+
+        local host2_ip=$(grep -i ${host2} /etc/hosts | awk '{print $1}')
+        local host3_ip=$(grep -i ${host3} /etc/hosts | awk '{print $1}')
+
+        result="etcd://${host1_ip}:2379,etcd://${host2_ip}:2379,etcd://${host3_ip}:2379"
+    fi
+
+    if [ $input_type == 'http' ]; then
+        echo $result | sed -e "s/etcd/http/g"
+    else
+        echo result
+    fi
 }
 
 _get-first-host() {
@@ -103,43 +122,32 @@ _copy_this_sh() {
 
 etcd-config-docker-daemon() {
     _copy_this_sh
-    pdsh -w $HOST_LIST bash ~/$0 _config-docker-daemon $(_get-first-host-ip)
+
+    local etcd_cluster=$(_get-etcd-ip-list etcd)
+
+    pdsh -w $HOST_LIST bash ~/$0 _local-config-docker $etcd_cluster
     echo "restarting docker daemon......"
     pdsh -w $HOST_LIST systemctl restart docker
 }
 
-_config-docker-daemon() {
-    local first_host_ip=$1
-    local cluster_ip=""
+_local-config-docker() {
+    local etcd_cluster=${1:?"Need etcd_cluster"}
     local docker_config="/etc/sysconfig/docker"
 
-    # 本地监听 2379端口
-    if netstat -lnt | awk '$6 == "LISTEN" && $4 ~ ".2379"'; then
-        cluster_ip="0.0.0.0"
-    else
-        cluster_ip=$first_host_ip
-    fi
-
     if cat $docker_config | grep -q "cluster-store"; then
-        sed -i "s/cluster-store=[^\']*/cluster-store=etcd:\/\/${cluster_ip}:2379/g" $docker_config
+        sed -i "s/cluster-store=[^\']*/cluster-store=${etcd_cluster//\//\\/}/g" $docker_config
     else
-        sed -i "s/OPTIONS='\(.*\)'/OPTIONS='\1 --cluster-store=etcd:\/\/${cluster_ip}:2379'/g" $docker_config
+        sed -i "s/OPTIONS='\(.*\)'/OPTIONS='\1 --cluster-store=${etcd_cluster//\//\\/}'/g" $docker_config
     fi
 }
 
 _local_calico_start() {
-    local first_host_ip=$1
-    local host_ip=$2
+    local etcd_cluster=${1:?"Usage:_local_calico_start <etcd_cluster> <host_ip> "}
+    local host_ip=${2:?"Usage:_local_calico_start <etcd_cluster> <host_ip> "}
 
-    local cluster_ip=""
-    if netstat -lnt | awk '$6 == "LISTEN" && $4 ~ ".2379"'; then
-        cluster_ip="0.0.0.0"
-    else
-        cluster_ip=$first_host_ip
-    fi
     # 默认的name 和hostName 一致，如果两台机器的hostName一致，则必须指定，不然bgp发现不了远端
-    # ETCD_ENDPOINTS=http://${cluster_ip}:2379 calicoctl node run --ip=$host_ip --node-image calico/node --name node1
-    ETCD_ENDPOINTS=http://${cluster_ip}:2379 calicoctl node run --ip=$host_ip --node-image calico/node
+    # ETCD_ENDPOINTS=http://${etcd_cluster}:2379 calicoctl node run --ip=$host_ip --node-image calico/node --name node1
+    ETCD_ENDPOINTS=${etcd_cluster} calicoctl node run --ip=$host_ip --node-image calico/node
 }
 
 calico-start() {
@@ -155,10 +163,13 @@ calico-start() {
     pdsh -w $HOST_LIST chmod +x /usr/local/bin/calicoctl
 
     _copy_this_sh
+
+    local etcd_cluster=$(_get-etcd-ip-list http)
+
     for host in $HOST_FOR_LIST
     do
         local host_ip=$(grep -i $host /etc/hosts | awk '{print $1}')
-        pdsh -w $host bash ~/$0 _local_calico_start $(_get-first-host-ip) $host_ip
+        pdsh -w $host bash ~/$0 _local_calico_start $etcd_cluster $host_ip
     done
     sleep 5
     pdsh -w $(_get-first-host) calicoctl node status
@@ -254,15 +265,12 @@ docker-stop-all() {
 }
 
 main() {
-    local cluster_size=${1:?"usege: main <ETCD_CLUSTER_SIZE>"}
     echo "docker-stop-all starting"
     docker-stop-all
-    echo "etcd-install starting"
-    # etcd-install
     echo "etcd-open-ports starting"
     etcd-open-ports
-    echo "etcd-start $cluster_size starting"
-    etcd-start $cluster_size
+    echo "etcd-start starting"
+    etcd-start
     echo "etcd-config-docker-daemon starting"
     etcd-config-docker-daemon
     echo "calico-start starting"
