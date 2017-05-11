@@ -56,6 +56,10 @@ amb-clean() {
         DRY_RUN CALICO_NET HDP_PKG_DIR HTTPD_NAME
 }
 
+_etcdctl() {
+  docker run  --rm tenstartups/etcdctl --endpoints $(_get-etcd-ip-list http) $@
+}
+
 get-ambari-server-ip() {
   AMBARI_SERVER_IP=$(get-host-ip ${AMBARI_SERVER_NAME})
 }
@@ -74,13 +78,13 @@ set-consul-ip() {
 
 get-host-ip() {
   HOST=$1
-  etcdctl get /ips/${HOST}
+  _etcdctl get /ips/${HOST}
 }
 
 set-host-ip() {
   HOST=$1
   IP=$(docker inspect --format="{{.NetworkSettings.Networks.${CALICO_NET}.IPAddress}}" ${HOST})
-  etcdctl set /ips/${HOST} ${IP}
+  _etcdctl set /ips/${HOST} ${IP}
 }
 
 _get-first-host() {
@@ -116,7 +120,7 @@ amb-copy-ssh-ids() {
   docker exec $AMBARI_SERVER_NAME  sh -c "echo -e  'y\n'|ssh-keygen -q -t rsa -N '' -f ~/.ssh/id_rsa"
 
   # /ips/amb1
-  local agent_list=$(etcdctl ls /ips | grep amb'[0-9]' | awk -F / '{print $3}')
+  local agent_list=$(_etcdctl ls /ips | grep amb'[0-9]' | awk -F / '{print $3}')
   for i in $agent_list; do
     local host_name="$i.service.consul"
     echo $host_name
@@ -126,11 +130,11 @@ amb-copy-ssh-ids() {
 }
 
 amb-clean-etcd() {
-  etcdctl rm /agent-nums
+  _etcdctl rm /agent-nums
 
-  local agent_list=$(etcdctl ls /ips | grep amb'[0-9]')
+  local agent_list=$(_etcdctl ls /ips | grep amb'[0-9]')
   for i in $agent_list; do
-    etcdctl rm $i 
+    _etcdctl rm $i 
   done
 }
 
@@ -141,13 +145,13 @@ amb-ssh-passwdless() {
 
 amb-start-agent() {
   local act_agent_size=${1:?"Usage:amb-start-agent <AGENT_NUM>"}
-  local agent_nums=`etcdctl get /agent-nums`
+  local agent_nums=$(_etcdctl get /agent-nums)
   local first=1
   local last=$act_agent_size
   if [ -z "$agent_nums" ]; then
-    etcdctl set /agent-nums $act_agent_size
+    _etcdctl set /agent-nums $act_agent_size
   else
-    etcdctl set /agent-nums $(($act_agent_size+$agent_nums))
+    _etcdctl set /agent-nums $(($act_agent_size+$agent_nums))
     first=$(($agent_nums+1))
     last=$(($agent_nums+$act_agent_size))
   fi
@@ -303,7 +307,7 @@ amb-tool-get-server-sshkey() {
 }
 
 amb-tool-get-agent-host-list() {
-  local agent_list=$(etcdctl ls /ips | grep amb'[0-9]' | tr -d "/ips/")
+  local agent_list=$(_etcdctl ls /ips | grep amb'[0-9]' | tr -d "/ips/")
   for i in $agent_list; do
     echo "${i}.service.consul"
   done
@@ -323,11 +327,6 @@ amb-tool-get-all-setting() {
   echo "=============server sshkey============="
   amb-tool-get-server-sshkey
   echo "=========================="
-}
-
-_copy_this_sh() {
-    _copy_env_sh
-    pdcp -w $HOST_LIST $0 ~
 }
 
 _check-input() {
