@@ -290,8 +290,8 @@ amb-start-HDP-httpd() {
 amb-replace-ambari-url() {
   local NODE_NAME=$1
   local httpd_ip=$(get-host-ip $HTTPD_NAME)
-  local baseurl=http://${httpd_ip}/ambari/centos7/2.4.0.1-1/
-  local gpgkey=http://${httpd_ip}/ambari/centos7/2.4.0.1-1/RPM-GPG-KEY/RPM-GPG-KEY-Jenkins
+  local baseurl=http://${httpd_ip}/AMBARI-2.4.0.1/centos7/2.4.0.1-1/
+  local gpgkey=http://${httpd_ip}/AMBARI-2.4.0.1/centos7/2.4.0.1-1/RPM-GPG-KEY/RPM-GPG-KEY-Jenkins
 
   docker exec $NODE_NAME sh -c "sed -i 's/baseurl=.*/baseurl=${baseurl//\//\\/}/g' /etc/yum.repos.d/ambari.repo"
   docker exec $NODE_NAME sh -c "sed -i 's/gpgkey=.*/gpgkey=${gpgkey//\//\\/}/g' /etc/yum.repos.d/ambari.repo"
