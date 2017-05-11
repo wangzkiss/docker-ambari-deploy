@@ -4,15 +4,26 @@
 . ./env.sh
 
 etcd-open-ports() {
-    pdsh -w $HOST_LIST firewall-cmd --zone=public --add-port=2380/tcp --permanent
-    pdsh -w $HOST_LIST firewall-cmd --zone=public --add-port=2379/tcp --permanent
-    pdsh -w $HOST_LIST firewall-cmd --reload
+    local etcd_host_list=$(_get-etcd-host-list)
+    pdsh -w $etcd_host_list firewall-cmd --zone=public --add-port=2380/tcp --permanent
+    pdsh -w $etcd_host_list firewall-cmd --zone=public --add-port=2379/tcp --permanent
+    pdsh -w $etcd_host_list firewall-cmd --reload
 }
 
 _stop-etcd-progress() {
     ps -ef | grep 'etcd -name'| grep -v grep | awk '{print $2}' | xargs kill -9
 }
 
+
+_get-etcd-host-list() {
+    local host_num=$(awk '{print NF}' <<< "$HOST_FOR_LIST")
+
+    if [ $host_num -lt 3 ]; then
+        echo $HOST_LIST | awk -F , '{print $1}'
+    else
+        echo $HOST_LIST | awk -F , '{printf "%s,%s,%s", $1,$2,$3}'
+    fi
+}
 
 etcd-start() {
     local host_num=$(awk '{print NF}' <<< "$HOST_FOR_LIST")
@@ -93,7 +104,8 @@ _get-etcd-ip-list() {
     if [ $input_type == 'http' ]; then
         echo $result | sed -e "s/etcd/http/g"
     else
-        echo result
+        # etcd for docker daemon only config one
+        echo $result | awk -F , '{print $1}'
     fi
 }
 
@@ -128,6 +140,9 @@ etcd-config-docker-daemon() {
     pdsh -w $HOST_LIST bash ~/$0 _local-config-docker $etcd_cluster
     echo "restarting docker daemon......"
     pdsh -w $HOST_LIST systemctl restart docker
+
+    # start etcd container, if not have ignore
+    pdsh -w $(_get-etcd-host-list) docker start etcd
 }
 
 _local-config-docker() {
