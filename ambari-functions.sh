@@ -232,9 +232,9 @@ amb-start-mysql() {
 }
 
 amb-start-server() {
-  amb-start-mysql
-  sleep 5
   amb-start-consul
+  sleep 5
+  amb-start-mysql
   sleep 5
   amb-start-ambari-server
   sleep 5
