@@ -272,11 +272,6 @@ amb-start-node() {
 
   # set password to agent, for server ssh
   docker exec ${NODE_PREFIX}$NUMBER sh -c " echo Zasd_1234 | passwd root --stdin "
-
-  # Not use centos repo search for yum install, just use Ambari server copy HDP.repo HDF-UTIL-*.repo ambari.repo
-  # docker exec ${NODE_PREFIX}$NUMBER sh -c " mkdir -p /etc/yum.repos.d/bak && mv /etc/yum.repos.d/*.repo /etc/yum.repos.d/bak/ "
-
-  /etc/yum.repos.d
 }
 
 _consul-register-service() {
@@ -386,6 +381,8 @@ amb-start-cluster() {
   pdsh -w $first_host bash ~/$0 amb-ssh-passwdless
   echo "test ambari started "
   amb-test-amb-server-start
+  # config hive connect mysql
+  docker exec $AMBARI_SERVER_NAME sh -c "ambari-server setup --jdbc-db=mysql --jdbc-driver=/usr/share/java/mysql-connector-java.jar"
   echo "print Ambari config settings"
   amb-tool-get-all-setting
 }
