@@ -245,7 +245,12 @@ docker-stop-all() {
     pdsh -w $HOST_LIST bash ~/$0 _clean-all-container
 }
 
+_copy_hosts() {
+    pdcp -w $HOST_LIST /etc/hosts /etc/hosts
+}
+
 main() {
+    _copy_hosts
     echo "docker-stop-all starting"
     docker-stop-all
     echo "etcd-open-ports starting"

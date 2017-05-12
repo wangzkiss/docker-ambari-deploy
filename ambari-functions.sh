@@ -9,6 +9,8 @@
 : ${AMBARI_AGENT_IMAGE:="registry.cn-hangzhou.aliyuncs.com/tospur/amb-agent:latest"}
 : ${HTTPD_IMAGE:="registry.cn-hangzhou.aliyuncs.com/tospur/httpd:latest"}
 : ${HTTPD_NAME:=httpd}
+: ${MYSQL_SERVER_NAME:=mysql}
+: ${MYSQL_PASSWD:=123456}
 : ${DOCKER_OPTS:=""}
 : ${CONSUL:=${NODE_PREFIX}-consul}
 : ${CONSUL_IMAGE:="sequenceiq/consul:v0.5.0-v6"}
@@ -351,6 +353,13 @@ _check-input() {
     echo $HADOOP_LOG
 }
 
+_start-mysql() {
+  run-command docker run --net ${CALICO_NET} --name $MYSQL_SERVER_NAME -e MYSQL_ROOT_PASSWORD=$MYSQL_PASSWD -d mysql
+
+  set-host-ip $MYSQL_SERVER_NAME
+
+  _consul-register-service $MYSQL_SERVER_NAME $(get-host-ip $MYSQL_SERVER_NAME)
+}
 
 # 启动集群
 amb-start-cluster() {
@@ -367,9 +376,23 @@ amb-start-cluster() {
 
   pdsh -w $first_host bash ~/$0 amb-start-server
   sleep 5
-  for host in $HOST_FOR_LIST
-  do
+
+  local host_num=$(awk '{print NF}' <<< "$HOST_FOR_LIST")
+  local count=0
+  for host in $HOST_FOR_LIST;do
+    # 一个节点以上在第二个节点起mysql
+    if [ host_num -gt 1 ]; then
+      if [ $count -eq 1 ];then
+          pdsh -w $host bash ~/$0 _start-mysql
+      fi
+    else
+      if [ $count -eq 0 ];then
+          pdsh -w $host bash ~/$0 _start-mysql
+      fi
+    fi 
     pdsh -w $host bash ~/$0 amb-start-agent $agents_per_host
+    
+    ((count+=1))
   done
 
   sleep 5
