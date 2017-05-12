@@ -225,7 +225,15 @@ amb-start-ambari-server() {
   _consul-register-service ambari-8080 $AMBARI_SERVER_IP
 }
 
+amb-start-mysql() {
+  run-command docker run --net ${CALICO_NET} --name $MYSQL_SERVER_NAME -e MYSQL_ROOT_PASSWORD=$MYSQL_PASSWD -d mysql
+  set-host-ip $MYSQL_SERVER_NAME
+  _consul-register-service $MYSQL_SERVER_NAME $(get-host-ip $MYSQL_SERVER_NAME)
+}
+
 amb-start-server() {
+  amb-start-mysql
+  sleep 5
   amb-start-consul
   sleep 5
   amb-start-ambari-server
@@ -272,6 +280,7 @@ amb-start-node() {
 }
 
 _consul-register-service() {
+  get-consul-ip
   docker run  --net ${CALICO_NET} --rm appropriate/curl sh -c "
     curl -X PUT -d \"{
         \\\"Node\\\": \\\"$1\\\",
@@ -353,14 +362,6 @@ _check-input() {
     echo $HADOOP_LOG
 }
 
-_start-mysql() {
-  run-command docker run --net ${CALICO_NET} --name $MYSQL_SERVER_NAME -e MYSQL_ROOT_PASSWORD=$MYSQL_PASSWD -d mysql
-
-  set-host-ip $MYSQL_SERVER_NAME
-
-  _consul-register-service $MYSQL_SERVER_NAME $(get-host-ip $MYSQL_SERVER_NAME)
-}
-
 # 启动集群
 amb-start-cluster() {
   local agents_per_host=${1:?"usage: AGENTS_PER_HOST"}
@@ -376,23 +377,8 @@ amb-start-cluster() {
 
   pdsh -w $first_host bash ~/$0 amb-start-server
   sleep 5
-
-  local host_num=$(awk '{print NF}' <<< "$HOST_FOR_LIST")
-  local count=0
-  for host in $HOST_FOR_LIST;do
-    # 一个节点以上在第二个节点起mysql
-    if [ host_num -gt 1 ]; then
-      if [ $count -eq 1 ];then
-          pdsh -w $host bash ~/$0 _start-mysql
-      fi
-    else
-      if [ $count -eq 0 ];then
-          pdsh -w $host bash ~/$0 _start-mysql
-      fi
-    fi 
+  for host in $HOST_FOR_LIST; do
     pdsh -w $host bash ~/$0 amb-start-agent $agents_per_host
-    
-    ((count+=1))
   done
 
   sleep 5
@@ -410,8 +396,8 @@ amb-clean-agent() {
 }
 
 amb-clean-server() {
-  docker stop $AMBARI_SERVER_NAME $CONSUL $HTTPD_NAME
-  docker rm -v $AMBARI_SERVER_NAME $CONSUL $HTTPD_NAME
+  docker stop $AMBARI_SERVER_NAME $CONSUL $HTTPD_NAME $MYSQL_SERVER_NAME
+  docker rm -v $AMBARI_SERVER_NAME $CONSUL $HTTPD_NAME $MYSQL_SERVER_NAME
 }
 
 amb-clean-cluster() {
