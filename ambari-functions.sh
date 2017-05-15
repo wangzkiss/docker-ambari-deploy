@@ -460,13 +460,14 @@ amb-publish-hive-10000-port(){
       amb_stay_host=$i
       amb_stay_host_ip=$(get-host-ip $amb_stay_host)
       break
+    fi
   done
 
   local locate_host=$(amb-get-agent-stay-host ${amb_stay_host: -1})
-  echo "local host: $locate_host"
+  echo "located host: $locate_host"
 
-  pdsh -w $locate_host iptables -A PREROUTING -t nat -i eth0 -p tcp --dport 8080 -j DNAT  --to ${amb_stay_host_ip}:8080
-  pdsh -w $locate_host iptables -t nat -A OUTPUT -p tcp -o lo --dport 8080 -j DNAT --to-destination ${amb_stay_host_ip}:8080
+  pdsh -w $locate_host iptables -A PREROUTING -t nat -i eth0 -p tcp --dport 10000 -j DNAT  --to ${amb_stay_host_ip}:10000
+  pdsh -w $locate_host iptables -t nat -A OUTPUT -p tcp -o lo --dport 10000 -j DNAT --to-destination ${amb_stay_host_ip}:10000
 
 }
 
