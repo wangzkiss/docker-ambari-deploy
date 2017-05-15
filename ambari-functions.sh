@@ -431,5 +431,44 @@ amb-test-amb-server-start() {
   done
 }
 
+amb-get-agent-stay-host(){
+  local input_num=${1:?"amb-get-agent-stay-host <number>"}
+  local agent_nums=$(_etcdctl get /agent-nums)
+  local host_num=$(awk '{print NF}' <<< "$HOST_FOR_LIST")
+  local each_host_agents=$((agent_nums/host_num))
+  local first=$(($input_num/$each_host_agents))
+  local last=$(($input_num%$each_host_agents))
+
+  local index=$first
+  if [ $last -gt 0 ]; then
+    index=$(($index+1))
+  fi
+  awk -v var=$index '{print $var}' <<< "$HOST_FOR_LIST"
+}
+
+amb-publish-hive-10000-port(){
+  # /ips/amb1
+  local agent_list=$(_etcdctl ls /ips | grep amb'[0-9]' | awk -F / '{print $3}')
+  local amb_stay_host=""
+  local amb_stay_host_ip=""
+  for i in $agent_list; do
+    local host_name="$i.service.consul"
+    
+    # server node must have ${NODE_PREFIX}1 amb-agent
+    if docker exec ${NODE_PREFIX}1  sh -c "nc -w 2 -v ${host_name} 10000 < /dev/null"; then
+      echo "$host_name have 10000 hiver server port"
+      amb_stay_host=$i
+      amb_stay_host_ip=$(get-host-ip $amb_stay_host)
+      break
+  done
+
+  local locate_host=$(amb-get-agent-stay-host ${amb_stay_host: -1})
+  echo "local host: $locate_host"
+
+  pdsh -w $locate_host iptables -A PREROUTING -t nat -i eth0 -p tcp --dport 8080 -j DNAT  --to ${amb_stay_host_ip}:8080
+  pdsh -w $locate_host iptables -t nat -A OUTPUT -p tcp -o lo --dport 8080 -j DNAT --to-destination ${amb_stay_host_ip}:8080
+
+}
+
 # call arguments verbatim:
 $@
