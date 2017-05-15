@@ -386,7 +386,7 @@ amb-start-cluster() {
   echo "test ambari started "
   amb-test-amb-server-start
   # config hive connect exist mysql
-  docker exec $AMBARI_SERVER_NAME sh -c "ambari-server setup --jdbc-db=mysql --jdbc-driver=/var/lib/ambari-server/resources/mysql-jdbc-driver.jar"
+  docker exec $AMBARI_SERVER_NAME sh -c "ambari-server setup --jdbc-db=mysql --jdbc-driver=/usr/share/java/mysql-connector-java.jar"
   echo "print Ambari config settings"
   amb-tool-get-all-setting
 }
@@ -446,8 +446,9 @@ amb-get-agent-stay-host(){
   awk -v var=$index '{print $var}' <<< "$HOST_FOR_LIST"
 }
 
-amb-publish-hive-10000-port(){
+amb-publish-port(){
   # /ips/amb1
+  local port=${1:?"Usage:amb-publish-port <port number>"}
   local agent_list=$(_etcdctl ls /ips | grep amb'[0-9]' | awk -F / '{print $3}')
   local amb_stay_host=""
   local amb_stay_host_ip=""
@@ -455,8 +456,8 @@ amb-publish-hive-10000-port(){
     local host_name="$i.service.consul"
     
     # server node must have ${NODE_PREFIX}1 amb-agent
-    if docker exec ${NODE_PREFIX}1  sh -c "nc -w 2 -v ${host_name} 10000 < /dev/null"; then
-      echo "$host_name have 10000 hiver server port"
+    if docker exec ${NODE_PREFIX}1  sh -c "nc -w 2 -v ${host_name} $port < /dev/null"; then
+      echo "$host_name have $port hiver server port"
       amb_stay_host=$i
       amb_stay_host_ip=$(get-host-ip $amb_stay_host)
       break
@@ -466,9 +467,16 @@ amb-publish-hive-10000-port(){
   local locate_host=$(amb-get-agent-stay-host ${amb_stay_host: -1})
   echo "located host: $locate_host"
 
-  pdsh -w $locate_host iptables -A PREROUTING -t nat -i eth0 -p tcp --dport 10000 -j DNAT  --to ${amb_stay_host_ip}:10000
-  pdsh -w $locate_host iptables -t nat -A OUTPUT -p tcp -o lo --dport 10000 -j DNAT --to-destination ${amb_stay_host_ip}:10000
+  _etcdctl set /hadoop/open_ports/$port "${amb_stay_host}-${amb_stay_host_ip}" 
 
+  pdsh -w $locate_host iptables -A PREROUTING -t nat -i eth0 -p tcp --dport $port -j DNAT  --to ${amb_stay_host_ip}:$port
+  pdsh -w $locate_host iptables -t nat -A OUTPUT -p tcp -o lo --dport $port -j DNAT --to-destination ${amb_stay_host_ip}:$port
+
+}
+
+amb-publish-ports() {
+  # hive jdbc port 10000
+  amb-publish-port 10000
 }
 
 # call arguments verbatim:
