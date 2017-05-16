@@ -476,7 +476,15 @@ amb-publish-hadoop-port(){
 }
 
 amb-publish-hadoop-ports() {
+  local first_host=$(_get-first-host)
   _copy_this_sh
+
+  # clean all port dnat
+  pdsh -w $HOST_LIST firewall-cmd --reload
+
+  # republish ambari 8080 port
+  get-ambari-server-ip
+  pdsh -w $first_host bash ~/$0 amb-publish-port 8080 $AMBARI_SERVER_IP
 
   # hive jdbc port 10000
   amb-publish-hadoop-port 10000
