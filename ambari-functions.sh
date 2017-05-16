@@ -183,13 +183,15 @@ amb-get-consul-ip() {
   docker stop $CONSUL && docker rm -v $CONSUL
 }
 
-amb-publish-ambari-port() {
-  # open 8080 port
-  firewall-cmd --zone=public --add-port=8080/tcp --permanent
+amb-publish-port() {
+  # open port
+  local port=${1:?"amb-publish-port <port> <des_ip>"}
+  local des_ip=${2:?"amb-publish-port <port> <des_ip>"}
+  firewall-cmd --zone=public --add-port=$port/tcp --permanent
   firewall-cmd --reload
 
-  iptables -A PREROUTING -t nat -i eth0 -p tcp --dport 8080 -j DNAT  --to ${AMBARI_SERVER_IP}:8080
-  iptables -t nat -A OUTPUT -p tcp -o lo --dport 8080 -j DNAT --to-destination ${AMBARI_SERVER_IP}:8080
+  iptables -A PREROUTING -t nat -i eth0 -p tcp --dport $port -j DNAT  --to ${des_ip}:$port
+  iptables -t nat -A OUTPUT -p tcp -o lo --dport $port -j DNAT --to-destination ${des_ip}:8080
   # TODO: need to save, in case of firewall-cmd --reload lost the dnat rules
 }
 
@@ -220,7 +222,8 @@ amb-start-ambari-server() {
               systemd.setenv=NAMESERVER_ADDR=$CONSUL_IP
   set-ambari-server-ip
   get-ambari-server-ip
-  amb-publish-ambari-port
+  # publish ambari 8080 port
+  amb-publish-port 8080 $AMBARI_SERVER_IP
 
   _consul-register-service $AMBARI_SERVER_NAME $AMBARI_SERVER_IP
   _consul-register-service ambari-8080 $AMBARI_SERVER_IP
@@ -446,7 +449,7 @@ amb-get-agent-stay-host(){
   awk -v var=$index '{print $var}' <<< "$HOST_FOR_LIST"
 }
 
-amb-publish-port(){
+amb-publish-hadoop-port(){
   # /ips/amb1
   local port=${1:?"Usage:amb-publish-port <port number>"}
   local agent_list=$(_etcdctl ls /ips | grep amb'[0-9]' | awk -F / '{print $3}')
@@ -469,14 +472,14 @@ amb-publish-port(){
 
   _etcdctl set /hadoop/open_ports/$port "${amb_stay_host}-${amb_stay_host_ip}" 
 
-  pdsh -w $locate_host iptables -A PREROUTING -t nat -i eth0 -p tcp --dport $port -j DNAT  --to ${amb_stay_host_ip}:$port
-  pdsh -w $locate_host iptables -t nat -A OUTPUT -p tcp -o lo --dport $port -j DNAT --to-destination ${amb_stay_host_ip}:$port
-
+  pdsh -w $locate_host bash ~/$0 amb-publish-port $port ${amb_stay_host_ip}
 }
 
-amb-publish-ports() {
+amb-publish-hadoop-ports() {
+  _copy_this_sh
+
   # hive jdbc port 10000
-  amb-publish-port 10000
+  amb-publish-hadoop-port 10000
 }
 
 # call arguments verbatim:
