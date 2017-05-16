@@ -191,7 +191,7 @@ amb-publish-port() {
   firewall-cmd --reload
 
   iptables -A PREROUTING -t nat -i eth0 -p tcp --dport $port -j DNAT  --to ${des_ip}:$port
-  iptables -t nat -A OUTPUT -p tcp -o lo --dport $port -j DNAT --to-destination ${des_ip}:8080
+  iptables -t nat -A OUTPUT -p tcp -o lo --dport $port -j DNAT --to-destination ${des_ip}:$port
   # TODO: need to save, in case of firewall-cmd --reload lost the dnat rules
 }
 
