@@ -26,7 +26,7 @@ amb-settings() {
   AMBARI_AGENT_IMAGE=$AMBARI_AGENT_IMAGE
   HTTPD_IMAGE=$HTTPD_IMAGE
   DOCKER_OPTS=$DOCKER_OPTS
-  AMBARI_SERVER_IP=$AMBARI_SERVER_IP
+  AMBARI_SERVER_IP=$(get-ambari-server-ip)
   CONSUL_IP=$(get-consul-ip)
   CONSUL=$CONSUL
   CONSUL_IMAGE=$CONSUL_IMAGE
@@ -50,12 +50,12 @@ run-command() {
 
 amb-clean() {
   unset NODE_PREFIX AMBARI_SERVER_NAME AMBARI_SERVER_IMAGE AMBARI_AGENT_IMAGE HTTPD_IMAGE CONSUL \
-        CONSUL_IMAGE DEBUG SLEEP_TIME AMBARI_SERVER_IP EXPOSE_DNS \
+        CONSUL_IMAGE DEBUG SLEEP_TIME EXPOSE_DNS \
         DRY_RUN CALICO_NET HDP_PKG_DIR HTTPD_NAME
 }
 
 get-ambari-server-ip() {
-  AMBARI_SERVER_IP=$(get-host-ip ${AMBARI_SERVER_NAME})
+  get-host-ip ${AMBARI_SERVER_NAME}
 }
 
 set-ambari-server-ip() {
@@ -140,19 +140,6 @@ amb-start-agent() {
   done
 }
 
-_amb_run_shell() {
-  COMMAND=$1
-  : ${COMMAND:? required}
-  get-ambari-server-ip
-  EXPECTED_HOST_COUNT=$(docker inspect --format="{{.Config.Image}} {{.Name}}" $(docker ps -q)|grep $AMBARI_AGENT_IMAGE|grep $NODE_PREFIX|wc -l|xargs)
-  run-command docker run --rm -e EXPECTED_HOST_COUNT=$EXPECTED_HOST_COUNT -e BLUEPRINT=$BLUEPRINT \
-              --link ${AMBARI_SERVER_NAME}:ambariserver --entrypoint /bin/sh $AMBARI_SERVER_IMAGE -c $COMMAND
-}
-
-amb-shell() {
-  _amb_run_shell /tmp/ambari-shell.sh
-}
-
 amb-get-consul-ip() {
   docker run --net $CALICO_NET --name $CONSUL -tid  busybox
   set-consul-ip
@@ -199,12 +186,12 @@ amb-start-ambari-server() {
               -h $AMBARI_SERVER_NAME.service.consul $AMBARI_SERVER_IMAGE \
               systemd.setenv=NAMESERVER_ADDR=$consul_ip
   set-ambari-server-ip
-  get-ambari-server-ip
+  local ambari_server_ip=$(get-ambari-server-ip)
   # publish ambari 8080 port
-  amb-publish-port 8080 $AMBARI_SERVER_IP
+  amb-publish-port 8080 $ambari_server_ip
 
-  consul-register-service $AMBARI_SERVER_NAME $AMBARI_SERVER_IP
-  consul-register-service ambari-8080 $AMBARI_SERVER_IP
+  consul-register-service $AMBARI_SERVER_NAME $ambari_server_ip
+  consul-register-service ambari-8080 $ambari_server_ip
 }
 
 amb-start-mysql() {
@@ -227,10 +214,7 @@ amb-start-server() {
 }
 
 amb-start-node() {
-  get-ambari-server-ip
   local consul_ip=$(get-consul-ip)
-
-  : ${AMBARI_SERVER_IP:?"AMBARI_SERVER_IP is needed"}
 
   local NUMBER=${1:?"please give a <NUMBER> parameter it will be used as node<NUMBER>"}
 
@@ -388,10 +372,10 @@ amb-clean-cluster() {
 }
 
 amb-test-amb-server-start() {
-  get-ambari-server-ip
+  local ambari_server_ip=$(get-ambari-server-ip)
 
   while [ 1 -eq 1 ]; do
-    if curl ${AMBARI_SERVER_IP}:8080; then
+    if curl ${ambari_server_ip}:8080; then
       break
     else
       sleep 5
@@ -448,8 +432,8 @@ amb-publish-hadoop-ports() {
   pdsh -w $HOST_LIST firewall-cmd --reload
 
   # republish ambari 8080 port
-  get-ambari-server-ip
-  pdsh -w $first_host bash ~/$0 amb-publish-port 8080 $AMBARI_SERVER_IP
+  local ambari_server_ip=$(get-ambari-server-ip)
+  pdsh -w $first_host bash ~/$0 amb-publish-port 8080 $ambari_server_ip
 
   # hive jdbc port 10000
   amb-publish-hadoop-port 10000
