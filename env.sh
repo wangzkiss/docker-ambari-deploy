@@ -1,5 +1,8 @@
 #!/usr/bin/bash
 
+: ${NODE_PREFIX=amb}
+: ${CONSUL:=${NODE_PREFIX}-consul}
+
 : ${HOST_LIST:=dc01,dc02,dc03,dc04,dc05}
 
 # 通过 calico 配置的跨节点网络
@@ -51,4 +54,38 @@ _get-etcd-ip-list() {
         # etcd for docker daemon only config one
         echo $result | awk -F , '{print $1}'
     fi
+}
+
+_etcdctl() {
+  docker run  --rm tenstartups/etcdctl --endpoints $(_get-etcd-ip-list http) $@
+}
+
+get-host-ip() {
+  HOST=$1
+  _etcdctl get /ips/${HOST}
+}
+
+set-host-ip() {
+  HOST=$1
+  IP=$(docker inspect --format="{{.NetworkSettings.Networks.${CALICO_NET}.IPAddress}}" ${HOST})
+  _etcdctl set /ips/${HOST} ${IP}
+}
+
+get-consul-ip() {
+  get-host-ip ${CONSUL}
+}
+
+consul-register-service() {
+    : ${1:?"Usage:consul-register-service <node_name> <node_ip>"}
+    : ${2:?"Usage:consul-register-service <node_name> <node_ip>"}
+    local consul_ip=$(get-consul-ip)
+    docker run  --net ${CALICO_NET} --rm appropriate/curl sh -c "
+    curl -X PUT -d \"{
+        \\\"Node\\\": \\\"$1\\\",
+        \\\"Address\\\": \\\"$2\\\",
+        \\\"Service\\\": {
+          \\\"Service\\\": \\\"$1\\\"
+        }
+      }\" http://$consul_ip:8500/v1/catalog/register
+  "
 }

@@ -3,7 +3,6 @@
 # import common variable
 . ./env.sh
 
-: ${NODE_PREFIX=amb}
 : ${AMBARI_SERVER_NAME:=${NODE_PREFIX}-server}
 : ${AMBARI_SERVER_IMAGE:="registry.cn-hangzhou.aliyuncs.com/tospur/amb-server:latest"}
 : ${AMBARI_AGENT_IMAGE:="registry.cn-hangzhou.aliyuncs.com/tospur/amb-agent:latest"}
@@ -12,9 +11,7 @@
 : ${MYSQL_SERVER_NAME:=mysql}
 : ${MYSQL_PASSWD:=123456}
 : ${DOCKER_OPTS:=""}
-: ${CONSUL:=${NODE_PREFIX}-consul}
 : ${CONSUL_IMAGE:="sequenceiq/consul:v0.5.0-v6"}
-: ${CLUSTER_SIZE:=3}
 : ${DEBUG:=1}
 : ${SLEEP_TIME:=2}
 : ${DNS_PORT:=53}
@@ -24,14 +21,13 @@
 amb-settings() {
   cat <<EOF
   NODE_PREFIX=$NODE_PREFIX
-  CLUSTER_SIZE=$CLUSTER_SIZE
   AMBARI_SERVER_NAME=$AMBARI_SERVER_NAME
   AMBARI_SERVER_IMAGE=$AMBARI_SERVER_IMAGE
   AMBARI_AGENT_IMAGE=$AMBARI_AGENT_IMAGE
   HTTPD_IMAGE=$HTTPD_IMAGE
   DOCKER_OPTS=$DOCKER_OPTS
   AMBARI_SERVER_IP=$AMBARI_SERVER_IP
-  CONSUL_IP=$CONSUL_IP
+  CONSUL_IP=$(get-consul-ip)
   CONSUL=$CONSUL
   CONSUL_IMAGE=$CONSUL_IMAGE
   EXPOSE_DNS=$EXPOSE_DNS
@@ -58,10 +54,6 @@ amb-clean() {
         DRY_RUN CALICO_NET HDP_PKG_DIR HTTPD_NAME
 }
 
-_etcdctl() {
-  docker run  --rm tenstartups/etcdctl --endpoints $(_get-etcd-ip-list http) $@
-}
-
 get-ambari-server-ip() {
   AMBARI_SERVER_IP=$(get-host-ip ${AMBARI_SERVER_NAME})
 }
@@ -70,23 +62,8 @@ set-ambari-server-ip() {
   set-host-ip ${AMBARI_SERVER_NAME}
 }
 
-get-consul-ip() {
-  CONSUL_IP=$(get-host-ip ${CONSUL})
-}
-
 set-consul-ip() {
   set-host-ip $CONSUL
-}
-
-get-host-ip() {
-  HOST=$1
-  _etcdctl get /ips/${HOST}
-}
-
-set-host-ip() {
-  HOST=$1
-  IP=$(docker inspect --format="{{.NetworkSettings.Networks.${CALICO_NET}.IPAddress}}" ${HOST})
-  _etcdctl set /ips/${HOST} ${IP}
 }
 
 _get-first-host() {
@@ -94,7 +71,7 @@ _get-first-host() {
 }
 
 amb-members() {
-  curl http://$CONSUL_IP:8500/v1/catalog/nodes | sed -e 's/,{"Node":"ambari-8080.*}//g' -e 's/,{"Node":"consul.*}//g'
+  curl http://$(get-consul-ip):8500/v1/catalog/nodes | sed -e 's/,{"Node":"ambari-8080.*}//g' -e 's/,{"Node":"consul.*}//g'
 }
 
 debug() {
@@ -179,8 +156,8 @@ amb-shell() {
 amb-get-consul-ip() {
   docker run --net $CALICO_NET --name $CONSUL -tid  busybox
   set-consul-ip
-  get-consul-ip
   docker stop $CONSUL && docker rm -v $CONSUL
+  get-consul-ip
 }
 
 amb-publish-port() {
@@ -202,15 +179,16 @@ amb-start-consul() {
   fi
 
   # 因为启动 consul 必须预先知道 IP所以先获得一个 ip
-  amb-get-consul-ip
+  local consul_ip=$(amb-get-consul-ip)
 
   echo "starting consul container"
-  run-command docker run -d $dns_port_command --net ${CALICO_NET} --ip $CONSUL_IP --name $CONSUL \
-              -h $CONSUL.service.consul $CONSUL_IMAGE -server -advertise $CONSUL_IP -bootstrap
+  run-command docker run -d $dns_port_command --net ${CALICO_NET} --ip $consul_ip --name $CONSUL \
+              -h $CONSUL.service.consul $CONSUL_IMAGE -server -advertise $consul_ip -bootstrap
 }
 
 
 amb-start-ambari-server() {
+  local consul_ip=$(get-consul-ip)
   rm -rf $HADOOP_LOG/$AMBARI_SERVER_NAME
   echo "pulling image"
   run-command docker pull $AMBARI_SERVER_IMAGE
@@ -219,20 +197,20 @@ amb-start-ambari-server() {
               --privileged --name $AMBARI_SERVER_NAME \
               -v $HADOOP_LOG/$AMBARI_SERVER_NAME:/var/log \
               -h $AMBARI_SERVER_NAME.service.consul $AMBARI_SERVER_IMAGE \
-              systemd.setenv=NAMESERVER_ADDR=$CONSUL_IP
+              systemd.setenv=NAMESERVER_ADDR=$consul_ip
   set-ambari-server-ip
   get-ambari-server-ip
   # publish ambari 8080 port
   amb-publish-port 8080 $AMBARI_SERVER_IP
 
-  _consul-register-service $AMBARI_SERVER_NAME $AMBARI_SERVER_IP
-  _consul-register-service ambari-8080 $AMBARI_SERVER_IP
+  consul-register-service $AMBARI_SERVER_NAME $AMBARI_SERVER_IP
+  consul-register-service ambari-8080 $AMBARI_SERVER_IP
 }
 
 amb-start-mysql() {
   run-command docker run --net ${CALICO_NET} --name $MYSQL_SERVER_NAME -e MYSQL_ROOT_PASSWORD=$MYSQL_PASSWD -d mysql
   set-host-ip $MYSQL_SERVER_NAME
-  _consul-register-service $MYSQL_SERVER_NAME $(get-host-ip $MYSQL_SERVER_NAME)
+  consul-register-service $MYSQL_SERVER_NAME $(get-host-ip $MYSQL_SERVER_NAME)
 }
 
 amb-start-server() {
@@ -250,10 +228,10 @@ amb-start-server() {
 
 amb-start-node() {
   get-ambari-server-ip
-  get-consul-ip
+  local consul_ip=$(get-consul-ip)
 
   : ${AMBARI_SERVER_IP:?"AMBARI_SERVER_IP is needed"}
-  : ${CONSUL_IP:?"CONSUL_IP is needed"}
+
   local NUMBER=${1:?"please give a <NUMBER> parameter it will be used as node<NUMBER>"}
 
   if [[ $# -eq 1 ]]; then
@@ -270,27 +248,14 @@ amb-start-node() {
   run-command docker run $MORE_OPTIONS $DOCKER_OPTS --privileged --net ${CALICO_NET} --name ${NODE_PREFIX}$NUMBER \
               -v $HADOOP_DATA/${NODE_PREFIX}$NUMBER:/hadoop -v $HADOOP_LOG/${NODE_PREFIX}$NUMBER:/var/log \
               -h ${NODE_PREFIX}${NUMBER}.service.consul $AMBARI_AGENT_IMAGE \
-              systemd.setenv=NAMESERVER_ADDR=$CONSUL_IP
+              systemd.setenv=NAMESERVER_ADDR=$consul_ip
 
   set-host-ip ${NODE_PREFIX}$NUMBER
 
-  _consul-register-service ${NODE_PREFIX}${NUMBER} $(get-host-ip ${NODE_PREFIX}$NUMBER)
+  consul-register-service ${NODE_PREFIX}${NUMBER} $(get-host-ip ${NODE_PREFIX}$NUMBER)
 
   # set password to agent, for server ssh
   docker exec ${NODE_PREFIX}$NUMBER sh -c " echo Zasd_1234 | passwd root --stdin "
-}
-
-_consul-register-service() {
-  get-consul-ip
-  docker run  --net ${CALICO_NET} --rm appropriate/curl sh -c "
-    curl -X PUT -d \"{
-        \\\"Node\\\": \\\"$1\\\",
-        \\\"Address\\\": \\\"$2\\\",
-        \\\"Service\\\": {
-          \\\"Service\\\": \\\"$1\\\"
-        }
-      }\" http://$CONSUL_IP:8500/v1/catalog/register
-  "
 }
 
 amb-start-HDP-httpd() {
