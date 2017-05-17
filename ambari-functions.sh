@@ -141,11 +141,10 @@ amb-start-agent() {
   done
 }
 
-amb-get-consul-ip() {
+amb-set-consul-ip() {
   docker run --net $CALICO_NET --name $CONSUL -tid  busybox
   set-consul-ip
   docker stop $CONSUL && docker rm -v $CONSUL
-  get-consul-ip
 }
 
 amb-publish-port() {
@@ -165,10 +164,9 @@ amb-start-consul() {
   if [[ "$EXPOSE_DNS" == "true" ]]; then
      dns_port_command="-p 53:$DNS_PORT/udp"
   fi
-
   # 因为启动 consul 必须预先知道 IP所以先获得一个 ip
-  local consul_ip=$(amb-get-consul-ip)
-
+  amb-set-consul-ip
+  local consul_ip=$(get-consul-ip)
   echo "starting consul container"
   run-command docker run -d $dns_port_command --net ${CALICO_NET} --ip $consul_ip --name $CONSUL \
               -h $CONSUL.service.consul $CONSUL_IMAGE -server -advertise $consul_ip -bootstrap
