@@ -71,7 +71,9 @@ _get-first-host() {
 }
 
 amb-members() {
-  curl http://$(get-consul-ip):8500/v1/catalog/nodes | sed -e 's/,{"Node":"ambari-8080.*}//g' -e 's/,{"Node":"consul.*}//g'
+  local consul_ip=$(get-consul-ip)
+  docker run  --net ${CALICO_NET} --rm appropriate/curl sh -c "curl http://$consul_ip:8500/v1/catalog/nodes" \
+    | sed -e 's/,{"Node":"ambari-8080.*}//g' -e 's/,{"Node":"consul.*}//g'
 }
 
 debug() {
