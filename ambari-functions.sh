@@ -177,7 +177,6 @@ amb-start-ambari-server() {
   local consul_ip=$(get-consul-ip)
   rm -rf $HADOOP_LOG/$AMBARI_SERVER_NAME
   echo "pulling image"
-  run-command docker pull $AMBARI_SERVER_IMAGE
   echo "starting amb-server"
   run-command docker run -d $DOCKER_OPTS --net ${CALICO_NET} \
               --privileged --name $AMBARI_SERVER_NAME \
@@ -226,7 +225,6 @@ amb-start-node() {
   # remove data && log dir
   rm -rf $HADOOP_DATA/${NODE_PREFIX}$NUMBER && rm -rf $HADOOP_LOG/${NODE_PREFIX}$NUMBER
   # pull images 
-  run-command docker pull $AMBARI_AGENT_IMAGE
 
   run-command docker run $MORE_OPTIONS $DOCKER_OPTS --privileged --net ${CALICO_NET} --name ${NODE_PREFIX}$NUMBER \
               -v $HADOOP_DATA/${NODE_PREFIX}$NUMBER:/hadoop -v $HADOOP_LOG/${NODE_PREFIX}$NUMBER:/var/log \
@@ -246,7 +244,6 @@ amb-start-HDP-httpd() {
   docker build -t my/httpd:latest ./httpd
   # 这里需要先将 HDP, HDP-UTILS-1.1.0.20 (centos 7) 放到 ${HDP_PKG_DIR}, 提供httpd访问
   # TODO: 必须检查配置路径的有效性
-  docker pull $HTTPD_IMAGE
   docker run --net ${CALICO_NET} --privileged=true -d --name $HTTPD_NAME -v ${HDP_PKG_DIR}:/usr/local/apache2/htdocs/ $HTTPD_IMAGE
 
   set-host-ip $HTTPD_NAME
