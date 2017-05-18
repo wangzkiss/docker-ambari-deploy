@@ -219,8 +219,8 @@ amb-start-server() {
 
 amb-start-node() {
   local consul_ip=$(get-consul-ip)
-
-  local NUMBER=${1:?"please give a <NUMBER> parameter it will be used as node<NUMBER>"}
+  local number=${1:?"please give a <number> parameter it will be used as node<number>"}
+  local node_name=${NODE_PREFIX}$number
 
   if [[ $# -eq 1 ]]; then
     MORE_OPTIONS="-d"
@@ -229,23 +229,30 @@ amb-start-node() {
     MORE_OPTIONS="$@"
   fi
   # remove data && log dir
-  rm -rf $HADOOP_DATA/${NODE_PREFIX}$NUMBER && rm -rf $HADOOP_LOG/${NODE_PREFIX}$NUMBER
+  rm -rf $HADOOP_DATA/$node_name && rm -rf $HADOOP_LOG/$node_name
 
   if [[ "$PULL_IMAGE" == "true" ]]; then
     echo "pulling image"
     docker pull $AMBARI_AGENT_IMAGE
   fi
-  run-command docker run $MORE_OPTIONS $DOCKER_OPTS --privileged --net ${CALICO_NET} --name ${NODE_PREFIX}$NUMBER \
-              -v $HADOOP_DATA/${NODE_PREFIX}$NUMBER:/hadoop -v $HADOOP_LOG/${NODE_PREFIX}$NUMBER:/var/log \
-              -h ${NODE_PREFIX}${NUMBER}.service.consul $AMBARI_AGENT_IMAGE \
+  run-command docker run $MORE_OPTIONS $DOCKER_OPTS --privileged --net ${CALICO_NET} --name $node_name \
+              -v $HADOOP_DATA/${node_name}:/hadoop -v $HADOOP_LOG/${node_name}:/var/log \
+              -h ${node_name}.service.consul $AMBARI_AGENT_IMAGE \
               systemd.setenv=NAMESERVER_ADDR=$consul_ip
 
-  set-host-ip ${NODE_PREFIX}$NUMBER
+  set-host-ip $node_name
+  consul-register-service $node_name $(get-host-ip $node_name)
 
-  consul-register-service ${NODE_PREFIX}${NUMBER} $(get-host-ip ${NODE_PREFIX}$NUMBER)
+  _amb-start-node-service $node_name
+}
+
+_amb-start-node-service() {
+  local node_name=${1:?"Usage: amb-start-node-service <node_name>"}
 
   # set password to agent, for server ssh
-  docker exec ${NODE_PREFIX}$NUMBER sh -c " echo Zasd_1234 | passwd root --stdin "
+  docker exec $node_name sh -c " echo Zasd_1234 | passwd root --stdin "
+  
+  docker exec $node_name sh -c " systemctl restart ntpd "
 }
 
 amb-start-HDP-httpd() {
