@@ -17,6 +17,7 @@
 : ${DNS_PORT:=53}
 : ${EXPOSE_DNS:=false}
 : ${DRY_RUN:=false}
+: ${PULL_IMAGE:=false}
 
 amb-settings() {
   cat <<EOF
@@ -176,7 +177,12 @@ amb-start-consul() {
 amb-start-ambari-server() {
   local consul_ip=$(get-consul-ip)
   rm -rf $HADOOP_LOG/$AMBARI_SERVER_NAME
-  echo "pulling image"
+  
+  if [[ "$PULL_IMAGE" == "true" ]]; then
+    echo "pulling image"
+    docker pull $AMBARI_SERVER_IMAGE
+  fi
+    
   echo "starting amb-server"
   run-command docker run -d $DOCKER_OPTS --net ${CALICO_NET} \
               --privileged --name $AMBARI_SERVER_NAME \
@@ -224,8 +230,11 @@ amb-start-node() {
   fi
   # remove data && log dir
   rm -rf $HADOOP_DATA/${NODE_PREFIX}$NUMBER && rm -rf $HADOOP_LOG/${NODE_PREFIX}$NUMBER
-  # pull images 
 
+  if [[ "$PULL_IMAGE" == "true" ]]; then
+    echo "pulling image"
+    docker pull $AMBARI_AGENT_IMAGE
+  fi
   run-command docker run $MORE_OPTIONS $DOCKER_OPTS --privileged --net ${CALICO_NET} --name ${NODE_PREFIX}$NUMBER \
               -v $HADOOP_DATA/${NODE_PREFIX}$NUMBER:/hadoop -v $HADOOP_LOG/${NODE_PREFIX}$NUMBER:/var/log \
               -h ${NODE_PREFIX}${NUMBER}.service.consul $AMBARI_AGENT_IMAGE \
