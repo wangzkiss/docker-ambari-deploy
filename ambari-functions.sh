@@ -82,7 +82,7 @@ debug() {
 
 docker-ps() {
   #docker ps|sed "s/ \{3,\}/#/g"|cut -d '#' -f 1,2,7|sed "s/#/\t/g"
-  docker inspect --format="{{.Name}} {{.NetworkSettings.Networks.${CALICO_NET}.IPAddress}} {{.Config.Image}} {{.Config.Entrypoint}} {{.Config.Cmd}}" $(docker ps -q)
+  docker inspect --format="{{.Name}} [{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}] {{.Config.Image}} {{.Config.Entrypoint}} {{.Config.Cmd}}" $(docker ps -q)
 }
 
 docker-psa() {
@@ -101,7 +101,7 @@ amb-copy-ssh-ids() {
   docker exec $AMBARI_SERVER_NAME  sh -c "echo -e  'y\n'|ssh-keygen -q -t rsa -N '' -f ~/.ssh/id_rsa"
 
   # /ips/amb1
-  local agent_list=$(_etcdctl ls /ips | grep amb'[0-9]' | awk -F / '{print $3}')
+  local agent_list=$(_etcdctl ls /ips | egrep "amb[0-9]+" | awk -F / '{print $3}')
   for i in $agent_list; do
     local host_name="$i.service.consul"
     echo $host_name
@@ -113,7 +113,7 @@ amb-copy-ssh-ids() {
 amb-clean-etcd() {
   _etcdctl rm /agent-nums
 
-  local agent_list=$(_etcdctl ls /ips | grep amb'[0-9]')
+  local agent_list=$(_etcdctl ls /ips | egrep "amb[0-9]+")
   for i in $agent_list; do
     _etcdctl rm $i 
   done
@@ -136,6 +136,9 @@ amb-start-agent() {
     first=$(($agent_nums+1))
     last=$(($agent_nums+$act_agent_size))
   fi
+
+  # Remove data && log dir on agent
+  rm -rf $HADOOP_DATA && rm -rf $HADOOP_LOG
 
   [ $act_agent_size -ge 1 ] && for i in $(seq $first $last); do
     amb-start-node $i
@@ -227,8 +230,6 @@ amb-start-node() {
     shift
     MORE_OPTIONS="$@"
   fi
-  # remove data && log dir
-  rm -rf $HADOOP_DATA/$node_name && rm -rf $HADOOP_LOG/$node_name
 
   if [[ "$PULL_IMAGE" == "true" ]]; then
     echo "pulling image"
@@ -280,7 +281,7 @@ amb-tool-get-server-sshkey() {
 }
 
 amb-tool-get-agent-host-list() {
-  local agent_list=$(_etcdctl ls /ips | grep amb'[0-9]' | tr -d "/ips/")
+  local agent_list=$(_etcdctl ls /ips | egrep "amb[0-9]+" | tr -d "/ips/")
   for i in $agent_list; do
     echo "${i}.service.consul"
   done
@@ -410,13 +411,13 @@ amb-get-agent-stay-host(){
 }
 
 _get-local-amb-node-name() {
-  docker ps --format '{{.Names}}' | grep "amb[0-9]\{1,\}" | head -n 1
+  docker ps --format '{{.Names}}' | egrep "amb[0-9]+" | head -n 1
 }
 
 amb-publish-hadoop-port(){
   # /ips/amb1
   local port=${1:?"Usage:amb-publish-port <port number>"}
-  local agent_list=$(_etcdctl ls /ips | grep amb'[0-9]' | awk -F / '{print $3}')
+  local agent_list=$(_etcdctl ls /ips | egrep "amb[0-9]+" | awk -F / '{print $3}')
   local amb_stay_host=""
   local amb_stay_host_ip=""
 
@@ -464,6 +465,9 @@ amb-install-hbase() {
   # docker exec $AMBARI_SERVER_NAME \
   #   sh -c "curl -u admin:admin -i -X POST -d '{\"ServiceInfo\":{\"service_name\":\"HBASE\"}}' http://localhost:8080/api/v1/clusters/test/services"
 }
+
+
+
 
 # call arguments verbatim:
 $@
