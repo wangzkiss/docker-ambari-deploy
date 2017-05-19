@@ -57,22 +57,22 @@ _get-etcd-ip-list() {
 }
 
 _etcdctl() {
-  docker run  --rm tenstartups/etcdctl --endpoints $(_get-etcd-ip-list http) $@
+    docker run  --rm tenstartups/etcdctl --endpoints $(_get-etcd-ip-list http) $@
 }
 
 get-host-ip() {
-  HOST=$1
-  _etcdctl get /ips/${HOST}
+    local HOST=${1:?"Usage: get-host-ip <HOST>"}
+     _etcdctl get /ips/${HOST}
 }
 
 set-host-ip() {
-  HOST=$1
-  IP=$(docker inspect --format="{{.NetworkSettings.Networks.${CALICO_NET}.IPAddress}}" ${HOST})
-  _etcdctl set /ips/${HOST} ${IP}
+    local HOST=${1:?"Usage: set-host-ip <HOST> <ip>"}
+    local IP=${2:"Usage: set-host-ip <HOST> <ip>"}
+    _etcdctl set /ips/${HOST} ${IP}
 }
 
 get-consul-ip() {
-  get-host-ip ${CONSUL}
+    get-host-ip ${CONSUL}
 }
 
 consul-register-service() {

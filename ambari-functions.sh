@@ -59,14 +59,6 @@ get-ambari-server-ip() {
   get-host-ip ${AMBARI_SERVER_NAME}
 }
 
-set-ambari-server-ip() {
-  set-host-ip ${AMBARI_SERVER_NAME}
-}
-
-set-consul-ip() {
-  set-host-ip $CONSUL
-}
-
 _get-first-host() {
     echo $HOST_FOR_LIST | awk '{print $1}'
 }
@@ -137,19 +129,21 @@ amb-start-agent() {
     last=$(($agent_nums+$act_agent_size))
   fi
 
+  local ip_list=$(amb-get-unusage-ip $act_agent_size)
+  IFS=', ' read -r -a array <<< "$ip_list"
+
   # Remove data && log dir on agent
   rm -rf $HADOOP_DATA && rm -rf $HADOOP_LOG
 
-  [ $act_agent_size -ge 1 ] && for i in $(seq $first $last); do
-    amb-start-node $i
-  done
+  if [ $act_agent_size -ge 1 ]; then
+    local count=0
+    for i in $(seq $first $last); do
+      amb-start-node $i ${array[$count]}
+      ((count+=1))
+    done
+  fi
 }
 
-amb-set-consul-ip() {
-  docker run --net $CALICO_NET --name $CONSUL -tid  busybox
-  set-consul-ip
-  docker stop $CONSUL && docker rm -v $CONSUL
-}
 
 amb-publish-port() {
   # open port
@@ -164,20 +158,24 @@ amb-publish-port() {
 }
 
 amb-start-consul() {
+  local local_ip=${1:?"Usage: amb-start-consul <ip>"}
+
   local dns_port_command=""
   if [[ "$EXPOSE_DNS" == "true" ]]; then
      dns_port_command="-p 53:$DNS_PORT/udp"
   fi
-  # 因为启动 consul 必须预先知道 IP所以先获得一个 ip
-  amb-set-consul-ip
-  local consul_ip=$(get-consul-ip)
+
   echo "starting consul container"
-  run-command docker run -d $dns_port_command --net ${CALICO_NET} --ip $consul_ip --name $CONSUL \
-              -h $CONSUL.service.consul $CONSUL_IMAGE -server -advertise $consul_ip -bootstrap
+  run-command docker run -d $dns_port_command --net ${CALICO_NET} --ip $local_ip --name $CONSUL \
+              -h $CONSUL.service.consul $CONSUL_IMAGE -server -advertise $local_ip -bootstrap
+
+  set-host-ip $CONSUL $local_ip
 }
 
 
 amb-start-ambari-server() {
+  local local_ip=${1:?"Usage: amb-start-ambari-server <ip>"}
+
   local consul_ip=$(get-consul-ip)
   if [[ "$PULL_IMAGE" == "true" ]]; then
     echo "pulling image"
@@ -186,12 +184,13 @@ amb-start-ambari-server() {
   # remove log dir
   rm -rf $HADOOP_LOG/$AMBARI_SERVER_NAME
   echo "starting amb-server"
-  run-command docker run -d $DOCKER_OPTS --net ${CALICO_NET} \
+  run-command docker run -d $DOCKER_OPTS --net ${CALICO_NET} --ip $local_ip \
               --privileged --name $AMBARI_SERVER_NAME \
               -v $HADOOP_LOG/$AMBARI_SERVER_NAME:/var/log \
               -h $AMBARI_SERVER_NAME.service.consul $AMBARI_SERVER_IMAGE \
               systemd.setenv=NAMESERVER_ADDR=$consul_ip
-  set-ambari-server-ip
+
+  set-host-ip $AMBARI_SERVER_NAME $local_ip
   local ambari_server_ip=$(get-ambari-server-ip)
   # publish ambari 8080 port
   amb-publish-port 8080 $ambari_server_ip
@@ -201,46 +200,46 @@ amb-start-ambari-server() {
 }
 
 amb-start-mysql() {
-  run-command docker run --net ${CALICO_NET} --name $MYSQL_SERVER_NAME -e MYSQL_ROOT_PASSWORD=$MYSQL_PASSWD -d mysql
-  set-host-ip $MYSQL_SERVER_NAME
+  local local_ip=${1:?"Usage: amb-start-mysql <ip>"}
+  run-command docker run --net ${CALICO_NET} --ip $local_ip --name $MYSQL_SERVER_NAME -e MYSQL_ROOT_PASSWORD=$MYSQL_PASSWD -d mysql
+  set-host-ip $MYSQL_SERVER_NAME $local_ip
   consul-register-service $MYSQL_SERVER_NAME $(get-host-ip $MYSQL_SERVER_NAME)
 }
 
 amb-start-server() {
-  amb-start-consul
+  # get unusage ips
+  local ip_list=$(amb-get-unusage-ip 4)
+  IFS=', ' read -r -a array <<< "$ip_list"
+
+  amb-start-consul ${array[0]}
   sleep 5
-  amb-start-mysql
+  amb-start-mysql ${array[1]}
   sleep 5
-  amb-start-ambari-server
+  amb-start-ambari-server ${array[2]}
   sleep 5
-  amb-start-HDP-httpd
+  amb-start-HDP-httpd ${array[3]}
   echo "replacing ambari.repo url"
   # agent register will copy ambari.repo from server
   amb-replace-ambari-url $AMBARI_SERVER_NAME
 }
 
 amb-start-node() {
-  local consul_ip=$(get-consul-ip)
-  local number=${1:?"please give a <number> parameter it will be used as node<number>"}
-  local node_name=${NODE_PREFIX}$number
+  local number=${1:?"Usage: amb-start-node <node_num> <ip>"}
+  local local_ip=${2:"Usage: amb-start-node <node_num> <ip>"}
 
-  if [[ $# -eq 1 ]]; then
-    MORE_OPTIONS="-d"
-  else
-    shift
-    MORE_OPTIONS="$@"
-  fi
+  local consul_ip=$(get-consul-ip)
+  local node_name=${NODE_PREFIX}$number
 
   if [[ "$PULL_IMAGE" == "true" ]]; then
     echo "pulling image"
     docker pull $AMBARI_AGENT_IMAGE
   fi
-  run-command docker run $MORE_OPTIONS $DOCKER_OPTS --privileged --net ${CALICO_NET} --name $node_name \
+  run-command docker run -d $DOCKER_OPTS --privileged --net ${CALICO_NET} --ip $local_ip --name $node_name \
               -v $HADOOP_DATA/${node_name}:/hadoop -v $HADOOP_LOG/${node_name}:/var/log \
               -h ${node_name}.service.consul $AMBARI_AGENT_IMAGE \
               systemd.setenv=NAMESERVER_ADDR=$consul_ip
 
-  set-host-ip $node_name
+  set-host-ip $node_name $local_ip
   consul-register-service $node_name $(get-host-ip $node_name)
 
   _amb-start-node-service $node_name
@@ -256,13 +255,11 @@ _amb-start-node-service() {
 }
 
 amb-start-HDP-httpd() {
-  # build image
-  docker build -t my/httpd:latest ./httpd
+  local local_ip=${1:?"Usage: amb-start-HDP-httpd <ip>"}
   # 这里需要先将 HDP, HDP-UTILS-1.1.0.20 (centos 7) 放到 ${HDP_PKG_DIR}, 提供httpd访问
-  # TODO: 必须检查配置路径的有效性
-  docker run --net ${CALICO_NET} --privileged=true -d --name $HTTPD_NAME -v ${HDP_PKG_DIR}:/usr/local/apache2/htdocs/ $HTTPD_IMAGE
+  docker run --net ${CALICO_NET} --ip $local_ip --privileged=true -d --name $HTTPD_NAME -v ${HDP_PKG_DIR}:/usr/local/apache2/htdocs/ $HTTPD_IMAGE
 
-  set-host-ip $HTTPD_NAME
+  set-host-ip $HTTPD_NAME $local_ip
 }
 
 amb-replace-ambari-url() {
@@ -466,7 +463,25 @@ amb-install-hbase() {
   #   sh -c "curl -u admin:admin -i -X POST -d '{\"ServiceInfo\":{\"service_name\":\"HBASE\"}}' http://localhost:8080/api/v1/clusters/test/services"
 }
 
+amb-get-unusage-ip(){
+  local ip_nums=${1:?"Usage: amb-get-unusage-ip <ip_nums>"}
+  # Get docker net usaging ip
+  local network_usage_ips=$(docker network inspect --format "{{range .Containers}}{{.IPv4Address}} {{end}}" $CALICO_NET \
+    | tr " " \\n \
+    | grep -v '^$' \
+    | awk -F "/" '{printf " -e %s", $1}')
 
+  # get current etcd store usaging ips
+  local etcd_host=$(_get-etcd-ip-list etcd | sed "s/etcd/http/g")
+  local etcd_usage_ips=$(curl -s -L $etcd_host/v2/keys/ips \
+    | jq ".node.nodes[].value" \
+    | tr -d '"' \
+    | awk '{printf " -e %s", $1}')
+
+  local ip_range=$(ipcalc -b $CALICO_CIDR | awk -F = '{print $2}' | sed "s/255/{1..254}/g")
+
+  eval "echo $ip_range" | tr " " \\n | grep -v $network_usage_ips $etcd_usage_ips | sort -R | head -n $ip_nums | paste -sd ','
+}
 
 
 # call arguments verbatim:
