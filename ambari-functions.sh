@@ -176,13 +176,12 @@ amb-start-consul() {
 
 amb-start-ambari-server() {
   local consul_ip=$(get-consul-ip)
-  rm -rf $HADOOP_LOG/$AMBARI_SERVER_NAME
-  
   if [[ "$PULL_IMAGE" == "true" ]]; then
     echo "pulling image"
     docker pull $AMBARI_SERVER_IMAGE
   fi
-    
+  # remove log dir
+  rm -rf $HADOOP_LOG/$AMBARI_SERVER_NAME
   echo "starting amb-server"
   run-command docker run -d $DOCKER_OPTS --net ${CALICO_NET} \
               --privileged --name $AMBARI_SERVER_NAME \
@@ -251,7 +250,7 @@ _amb-start-node-service() {
 
   # set password to agent, for server ssh
   docker exec $node_name sh -c " echo Zasd_1234 | passwd root --stdin "
-  
+
   docker exec $node_name sh -c " systemctl restart ntpd "
 }
 
@@ -410,17 +409,23 @@ amb-get-agent-stay-host(){
   awk -v var=$index '{print $var}' <<< "$HOST_FOR_LIST"
 }
 
+_get-local-amb-node-name() {
+  docker ps --format '{{.Names}}' | grep "amb[0-9]\{1,\}" | head -n 1
+}
+
 amb-publish-hadoop-port(){
   # /ips/amb1
   local port=${1:?"Usage:amb-publish-port <port number>"}
   local agent_list=$(_etcdctl ls /ips | grep amb'[0-9]' | awk -F / '{print $3}')
   local amb_stay_host=""
   local amb_stay_host_ip=""
+
+  local amb_node_name=$(_get-local-amb-node-name)
+
   for i in $agent_list; do
     local host_name="$i.service.consul"
-    
     # server node must have ${NODE_PREFIX}1 amb-agent
-    if docker exec ${NODE_PREFIX}1  sh -c "nc -w 2 -v ${host_name} $port < /dev/null"; then
+    if docker exec $amb_node_name  sh -c "nc -w 2 -v ${host_name} $port < /dev/null"; then
       echo "$host_name have $port hiver server port"
       amb_stay_host=$i
       amb_stay_host_ip=$(get-host-ip $amb_stay_host)
@@ -449,6 +454,15 @@ amb-publish-hadoop-ports() {
 
   # hive jdbc port 10000
   amb-publish-hadoop-port 10000
+}
+
+# ambari install have error
+amb-install-hbase() {
+  local amb_node_name=$(_get-local-amb-node-name)
+  docker exec $amb_node_name  sh -c "su hdfs -c \"hadoop fs -rm -r -f /apps/hbase/\""
+  # TODO: add Hbase service use api
+  # docker exec $AMBARI_SERVER_NAME \
+  #   sh -c "curl -u admin:admin -i -X POST -d '{\"ServiceInfo\":{\"service_name\":\"HBASE\"}}' http://localhost:8080/api/v1/clusters/test/services"
 }
 
 # call arguments verbatim:

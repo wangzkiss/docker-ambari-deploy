@@ -68,6 +68,7 @@ three-etcd-start() {
 
         pdsh -w ${!host} \
             "docker run -d -v /usr/share/ca-certificates/:/etc/ssl/certs -p 2380:2380 -p 2379:2379 \
+             --restart always \
              --name etcd twang2218/etcd:v2.3.7  \
              -name etcd${host: -1} \
              -advertise-client-urls http://$host_ip:2379 \
@@ -108,7 +109,7 @@ etcd-config-docker-daemon() {
     pdsh -w $HOST_LIST systemctl restart docker
 
     # start etcd container, if not have ignore
-    pdsh -w $(_get-etcd-host-list) docker start etcd
+    # pdsh -w $(_get-etcd-host-list) docker start etcd
 }
 
 _local-config-docker() {
@@ -133,8 +134,9 @@ _local_calico_start() {
 
 calico-start() {
     if [ ! -e ./calicoctl ]; then
-        echo "downloading calicoctl ......"
-        wget -O ./calicoctl https://github.com/projectcalico/calicoctl/releases/download/v1.1.3/calicoctl
+        # echo "downloading calicoctl ......"
+        # wget -O ./calicoctl https://github.com/projectcalico/calicoctl/releases/download/v1.1.3/calicoctl
+        tar -zxf ./calicoctl.tar.gz
     fi
     # open port:179 for BPG protocol (calico use for node communication)
     pdsh -w $HOST_LIST firewall-cmd --zone=public --add-port=179/tcp --permanent
