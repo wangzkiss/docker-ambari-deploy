@@ -225,7 +225,7 @@ amb-start-server() {
 
 amb-start-node() {
   local number=${1:?"Usage: amb-start-node <node_num> <ip>"}
-  local local_ip=${2:"Usage: amb-start-node <node_num> <ip>"}
+  local local_ip=${2:?"Usage: amb-start-node <node_num> <ip>"}
 
   local consul_ip=$(get-consul-ip)
   local node_name=${NODE_PREFIX}$number

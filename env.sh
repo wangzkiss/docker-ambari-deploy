@@ -67,7 +67,7 @@ get-host-ip() {
 
 set-host-ip() {
     local HOST=${1:?"Usage: set-host-ip <HOST> <ip>"}
-    local IP=${2:"Usage: set-host-ip <HOST> <ip>"}
+    local IP=${2:?"Usage: set-host-ip <HOST> <ip>"}
     _etcdctl set /ips/${HOST} ${IP}
 }
 
