@@ -195,15 +195,15 @@ amb-start-ambari-server() {
   # publish ambari 8080 port
   amb-publish-port 8080 $ambari_server_ip
 
-  consul-register-service $AMBARI_SERVER_NAME $ambari_server_ip
-  consul-register-service ambari-8080 $ambari_server_ip
+  run-command consul-register-service $AMBARI_SERVER_NAME $ambari_server_ip
+  run-command consul-register-service ambari-8080 $ambari_server_ip
 }
 
 amb-start-mysql() {
   local local_ip=${1:?"Usage: amb-start-mysql <ip>"}
   run-command docker run --net ${CALICO_NET} --ip $local_ip --name $MYSQL_SERVER_NAME -e MYSQL_ROOT_PASSWORD=$MYSQL_PASSWD -d mysql
   set-host-ip $MYSQL_SERVER_NAME $local_ip
-  consul-register-service $MYSQL_SERVER_NAME $(get-host-ip $MYSQL_SERVER_NAME)
+  run-command consul-register-service $MYSQL_SERVER_NAME $(get-host-ip $MYSQL_SERVER_NAME)
 }
 
 amb-start-server() {
@@ -240,7 +240,7 @@ amb-start-node() {
               systemd.setenv=NAMESERVER_ADDR=$consul_ip
 
   set-host-ip $node_name $local_ip
-  consul-register-service $node_name $(get-host-ip $node_name)
+  run-command consul-register-service $node_name $(get-host-ip $node_name)
 
   _amb-start-node-service $node_name
 }
