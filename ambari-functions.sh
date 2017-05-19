@@ -257,7 +257,7 @@ _amb-start-node-service() {
 amb-start-HDP-httpd() {
   local local_ip=${1:?"Usage: amb-start-HDP-httpd <ip>"}
   # 这里需要先将 HDP, HDP-UTILS-1.1.0.20 (centos 7) 放到 ${HDP_PKG_DIR}, 提供httpd访问
-  docker run --net ${CALICO_NET} --ip $local_ip --privileged=true -d --name $HTTPD_NAME -v ${HDP_PKG_DIR}:/usr/local/apache2/htdocs/ $HTTPD_IMAGE
+  run-command docker run --net ${CALICO_NET} --ip $local_ip --privileged=true -d --name $HTTPD_NAME -v ${HDP_PKG_DIR}:/usr/local/apache2/htdocs/ $HTTPD_IMAGE
 
   set-host-ip $HTTPD_NAME $local_ip
 }
