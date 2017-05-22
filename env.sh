@@ -60,6 +60,10 @@ _etcdctl() {
     docker run  --rm tenstartups/etcdctl --endpoints $(_get-etcd-ip-list http) $@
 }
 
+_get-first-host() {
+    echo $HOST_FOR_LIST | awk '{print $1}'
+}
+
 get-host-ip() {
     local HOST=${1:?"Usage: get-host-ip <HOST>"}
      _etcdctl get /ips/${HOST}

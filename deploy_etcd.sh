@@ -14,7 +14,6 @@ _stop-etcd-progress() {
     ps -ef | grep 'etcd -name'| grep -v grep | awk '{print $2}' | xargs kill -9
 }
 
-
 _get-etcd-host-list() {
     local host_num=$(awk '{print NF}' <<< "$HOST_FOR_LIST")
 
@@ -41,6 +40,7 @@ one-etcd-start() {
 
     pdsh -w $first_host \
         "docker run -d -v /usr/share/ca-certificates/:/etc/ssl/certs -p 2380:2380 -p 2379:2379 \
+         --restart always \
          --name etcd twang2218/etcd:v2.3.7 \
          -name etcd1 \
          -advertise-client-urls http://$host_ip:2379 \
@@ -81,10 +81,6 @@ three-etcd-start() {
     done
 }
 
-_get-first-host() {
-    echo $HOST_FOR_LIST | awk '{print $1}'
-}
-
 _get-first-host-ip() {
     local host=$(_get-first-host)
     grep -i $host /etc/hosts | awk '{print $1}'
@@ -99,17 +95,10 @@ _get-second-host-ip() {
     grep -i $host /etc/hosts | awk '{print $2}'
 }
 
-etcd-config-docker-daemon() {
+config-docker-daemon-with-etcd() {
     _copy_this_sh
-
     local etcd_cluster=$(_get-etcd-ip-list etcd)
-
     pdsh -w $HOST_LIST bash ~/$0 _local-config-docker $etcd_cluster
-    echo "restarting docker daemon......"
-    pdsh -w $HOST_LIST systemctl restart docker
-
-    # start etcd container, if not have ignore
-    # pdsh -w $(_get-etcd-host-list) docker start etcd
 }
 
 _local-config-docker() {
@@ -121,36 +110,35 @@ _local-config-docker() {
     else
         sed -i "s/OPTIONS='\(.*\)'/OPTIONS='\1 --cluster-store=${etcd_cluster//\//\\/}'/g" $docker_config
     fi
+    echo "restarting docker daemon......"
+    systemctl restart docker
 }
 
 _local_calico_start() {
     local etcd_cluster=${1:?"Usage:_local_calico_start <etcd_cluster> <host_ip> "}
     local host_ip=${2:?"Usage:_local_calico_start <etcd_cluster> <host_ip> "}
 
+    # open port:179 for BPG protocol (calico use for node communication)
+    firewall-cmd --zone=public --add-port=179/tcp --permanent
+    firewall-cmd --reload
+
+    chmod +x /usr/local/bin/calicoctl
     # 默认的name 和hostName 一致，如果两台机器的hostName一致，则必须指定，不然bgp发现不了远端
     # ETCD_ENDPOINTS=http://${etcd_cluster}:2379 calicoctl node run --ip=$host_ip --node-image calico/node --name node1
     ETCD_ENDPOINTS=${etcd_cluster} calicoctl node run --ip=$host_ip --node-image calico/node
 }
 
 calico-start() {
+    local etcd_cluster=$(_get-etcd-ip-list http)
     if [ ! -e ./calicoctl ]; then
-        # echo "downloading calicoctl ......"
         # wget -O ./calicoctl https://github.com/projectcalico/calicoctl/releases/download/v1.1.3/calicoctl
         tar -zxf ./calicoctl.tar.gz
     fi
-    # open port:179 for BPG protocol (calico use for node communication)
-    pdsh -w $HOST_LIST firewall-cmd --zone=public --add-port=179/tcp --permanent
-    pdsh -w $HOST_LIST firewall-cmd --reload
-
+    # copy calicoctl
     pdcp -w $HOST_LIST ./calicoctl /usr/local/bin/calicoctl
-    pdsh -w $HOST_LIST chmod +x /usr/local/bin/calicoctl
-
     _copy_this_sh
-
-    local etcd_cluster=$(_get-etcd-ip-list http)
-
-    for host in $HOST_FOR_LIST
-    do
+    
+    for host in $HOST_FOR_LIST; do
         local host_ip=$(grep -i $host /etc/hosts | awk '{print $1}')
         pdsh -w $host bash ~/$0 _local_calico_start $etcd_cluster $host_ip
     done
@@ -251,6 +239,22 @@ _copy_hosts() {
     pdcp -w $HOST_LIST /etc/hosts /etc/hosts
 }
 
+add-new-host(){
+    local host=${1:?"Usage add-new-host <host>"}
+    local etcd_cluster=$(_get-etcd-ip-list etcd)
+    _copy_this_sh
+
+    pdsh -w $host bash ~/$0 _local-config-docker $etcd_cluster
+    # copy calicoctl
+    pdcp -w $host ./calicoctl /usr/local/bin/calicoctl
+    
+    local host_ip=$(grep -i $host /etc/hosts | awk '{print $1}')
+    pdsh -w $host bash ~/$0 _local_calico_start $etcd_cluster $host_ip
+
+    pdsh -w $host calicoctl node status
+
+}
+
 main() {
     _copy_hosts
     echo "docker-stop-all starting"
@@ -259,8 +263,8 @@ main() {
     etcd-open-ports
     echo "etcd-start starting"
     etcd-start
-    echo "etcd-config-docker-daemon starting"
-    etcd-config-docker-daemon
+    echo "config-docker-daemon-with-etcd starting"
+    config-docker-daemon-with-etcd
     echo "calico-start starting"
     calico-start
     echo "calico-create-net starting"

@@ -59,10 +59,6 @@ get-ambari-server-ip() {
   get-host-ip ${AMBARI_SERVER_NAME}
 }
 
-_get-first-host() {
-    echo $HOST_FOR_LIST | awk '{print $1}'
-}
-
 amb-members() {
   local consul_ip=$(get-consul-ip)
   docker run  --net ${CALICO_NET} --rm appropriate/curl sh -c "curl http://$consul_ip:8500/v1/catalog/nodes"
@@ -302,8 +298,7 @@ _amb-config-nameserver() {
 _amb-copy-ssh-to-agent(){
   local node_name=${1:?"Usage: _amb-copy-ssh-to-agent <node_name> "}
   local host_name="$node_name.service.consul"
-  docker exec $AMBARI_SERVER_NAME  sh -c "ssh-keyscan $host_name 2>&1 | sort -u - ~/.ssh/known_hosts > ~/.ssh/tmp_hosts"
-  docker exec $AMBARI_SERVER_NAME  sh -c "mv ~/.ssh/tmp_hosts ~/.ssh/known_hosts"
+  docker exec $AMBARI_SERVER_NAME  sh -c "ssh-keyscan $host_name >> ~/.ssh/known_hosts"
   docker exec $AMBARI_SERVER_NAME  sh -c "sshpass -p Zasd_1234 ssh-copy-id root@${host_name}"
 }
 
@@ -312,6 +307,9 @@ _amb-server-to-agents-passwdless() {
   for node_name in $agent_list; do
     _amb-copy-ssh-to-agent $node_name
   done
+  # unique known_hosts
+  docker exec $AMBARI_SERVER_NAME  sh -c "sort -u ~/.ssh/known_hosts > ~/.ssh/tmp_hosts"
+  docker exec $AMBARI_SERVER_NAME  sh -c "mv ~/.ssh/tmp_hosts ~/.ssh/known_hosts"
 }
 
 _amb-server-ssh-keygen(){
@@ -492,7 +490,7 @@ amb-add-new-agent(){
 
   local first_host=$(_get-first-host)
   _copy_this_sh
-  
+
   pdsh -w $host bash ~/$0 amb-start-agent $agent_num
   pdsh -w $first_host bash ~/$0 _amb-server-to-agents-passwdless
 }
