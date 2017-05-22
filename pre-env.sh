@@ -73,12 +73,19 @@ pre-deploy() {
     pdsh -w $HOST_LIST bash ~/$0 _pre-host
 }
 
+_add-host-to-env-sh(){
+    local host=$1
+    sed -i "s/HOST_LIST:=\(.*\)\}/HOST_LIST:=\1,$host\}/g" ./env.sh
+}
+
 add-new-host() {
     local host=${1:?"Usage: add-new-host <host> <passwd>"}
     local passwd=${2:?"sage: add-new-host <host> <passwd>"}
 
+    _add-host-to-env-sh $host
+
     _host-ssh-passwd-less $host $passwd
-    _copy_this_sh
+    _copy_this_sh $host
     pdsh -w $host bash ~/$0 _pre-host 
 }
 

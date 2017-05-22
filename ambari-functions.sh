@@ -337,14 +337,14 @@ amb-start-cluster() {
   echo 'Now starting the cluster ......'
   _copy_this_sh
 
-  pdsh -w $first_host bash ~/$0 amb-start-server
+  amb-start-server
   sleep 5
   for host in $HOST_FOR_LIST; do
     pdsh -w $host bash ~/$0 amb-start-agent $agents_per_host
   done
 
   sleep 5
-  pdsh -w $first_host bash ~/$0 _amb-start-services-after-server-started
+  _amb-start-services-after-server-started
 
   echo "test ambari started "
   amb-test-amb-server-start
@@ -449,7 +449,7 @@ amb-publish-hadoop-ports() {
 
   # republish ambari 8080 port
   local ambari_server_ip=$(get-ambari-server-ip)
-  pdsh -w $first_host bash ~/$0 amb-publish-port 8080 $ambari_server_ip
+  amb-publish-port 8080 $ambari_server_ip
 
   # hive jdbc port 10000
   amb-publish-hadoop-port 10000
@@ -489,10 +489,10 @@ amb-add-new-agent(){
   local agent_num=${2:?"Usage: amb-add-new-agent <host> <amb-agent-num>"}
 
   local first_host=$(_get-first-host)
-  _copy_this_sh
+  _copy_this_sh $host
 
   pdsh -w $host bash ~/$0 amb-start-agent $agent_num
-  pdsh -w $first_host bash ~/$0 _amb-server-to-agents-passwdless
+  _amb-server-to-agents-passwdless
 }
 
 # call arguments verbatim:

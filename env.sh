@@ -18,13 +18,14 @@
 # split by space
 HOST_FOR_LIST=${HOST_LIST//,/ }
 
-_copy_env_sh() {
-    pdcp -w $HOST_LIST env.sh ~
-}
-
 _copy_this_sh() {
-    _copy_env_sh
-    pdcp -w $HOST_LIST $0 ~
+    local host=$1
+    if [[ "" == $host ]];then
+        host=$HOST_LIST
+    fi
+
+    pdcp -w $host env.sh ~
+    pdcp -w $host $0 ~
 }
 
 _get-etcd-ip-list() {
