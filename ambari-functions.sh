@@ -132,9 +132,6 @@ amb-start-agent() {
   local ip_list=$(amb-get-unusage-ip $act_agent_size)
   IFS=', ' read -r -a array <<< "$ip_list"
 
-  # Remove data && log dir on agent
-  rm -rf $HADOOP_DATA && rm -rf $HADOOP_LOG
-
   if [ $act_agent_size -ge 1 ]; then
     local count=0
     for i in $(seq $first $last); do
@@ -234,6 +231,10 @@ amb-start-node() {
     echo "pulling image"
     docker pull $AMBARI_AGENT_IMAGE
   fi
+
+  # Remove data && log dir before node start
+  rm -rf $HADOOP_DATA/${node_name} && rm -rf $HADOOP_LOG/${node_name}
+
   run-command docker run -d $DOCKER_OPTS --privileged --net ${CALICO_NET} --ip $local_ip --name $node_name \
               -v $HADOOP_DATA/${node_name}:/hadoop -v $HADOOP_LOG/${node_name}:/var/log \
               -h ${node_name}.service.consul $AMBARI_AGENT_IMAGE \
@@ -481,6 +482,16 @@ amb-get-unusage-ip(){
   local ip_range=$(ipcalc -b $CALICO_CIDR | awk -F = '{print $2}' | sed "s/255/{1..254}/g")
 
   eval "echo $ip_range" | tr " " \\n | grep -v $network_usage_ips $etcd_usage_ips | sort -R | head -n $ip_nums | paste -sd ','
+}
+
+
+amb-add-new-agent(){
+  local host=${1:?"Usage: amb-add-new-agent <host> <amb-agent-num>"}
+  local agent_num=${2:?"Usage: amb-add-new-agent <host> <amb-agent-num>"}
+
+  _copy_this_sh
+  pdsh -w $host bash ~/$0 amb-start-agent $agent_num
+  amb-copy-ssh-ids
 }
 
 
