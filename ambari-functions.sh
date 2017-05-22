@@ -73,38 +73,11 @@ debug() {
 }
 
 docker-ps() {
-  #docker ps|sed "s/ \{3,\}/#/g"|cut -d '#' -f 1,2,7|sed "s/#/\t/g"
   docker inspect --format="{{.Name}} [{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}] {{.Config.Image}} {{.Config.Entrypoint}} {{.Config.Cmd}}" $(docker ps -q)
 }
 
 docker-psa() {
-  #docker ps|sed "s/ \{3,\}/#/g"|cut -d '#' -f 1,2,7|sed "s/#/\t/g"
-  docker inspect --format="{{.Name}} {{.NetworkSettings.Networks.${CALICO_NET}.IPAddress}} {{.Config.Image}} {{.Config.Entrypoint}} {{.Config.Cmd}}" $(docker ps -qa)
-}
-
-_amb-config-nameserver() {
-  # server 端添加 能上网的 nameserver
-  local nameserver=$(docker exec $CONSUL  sh -c "sed -n '/.*nameserver.*/p' /etc/resolv.conf")
-  docker exec $AMBARI_SERVER_NAME  sh -c "echo '$nameserver' >> /etc/resolv.conf"
-  docker exec $AMBARI_SERVER_NAME  sh -c "cat /etc/resolv.conf"
-}
-
-
-amb-copy-ssh-to-agent(){
-  local node_name=${1:?"Usage: amb-copy-ssh-to-agent <node_name> "}
-  local host_name="$node_name.service.consul"
-  docker exec $AMBARI_SERVER_NAME  sh -c "ssh-keyscan $host_name 2>&1 | sort -u - ~/.ssh/known_hosts > ~/.ssh/tmp_hosts"
-  docker exec $AMBARI_SERVER_NAME  sh -c "mv ~/.ssh/tmp_hosts ~/.ssh/known_hosts"
-
-  docker exec $AMBARI_SERVER_NAME  sh -c "sshpass -p Zasd_1234 ssh-copy-id root@${host_name}"
-}
-
-_amb-ssh-passwdless() {
-  # /ips/amb1
-  local agent_list=$(_etcdctl ls /ips | egrep "amb[0-9]+" | awk -F / '{print $3}')
-  for node_name in $agent_list; do
-    amb-copy-ssh-to-agent $node_name
-  done
+  docker inspect --format="{{.Name}} [{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}] {{.Config.Image}} {{.Config.Entrypoint}} {{.Config.Cmd}}" $(docker ps -qa)
 }
 
 amb-clean-etcd() {
@@ -141,9 +114,7 @@ amb-start-agent() {
   fi
 }
 
-
 amb-publish-port() {
-  # open port
   local port=${1:?"amb-publish-port <port> <des_ip>"}
   local des_ip=${2:?"amb-publish-port <port> <des_ip>"}
   firewall-cmd --zone=public --add-port=$port/tcp --permanent
@@ -156,21 +127,14 @@ amb-publish-port() {
 
 amb-start-consul() {
   local local_ip=${1:?"Usage: amb-start-consul <ip>"}
-
   local dns_port_command=""
   if [[ "$EXPOSE_DNS" == "true" ]]; then
      dns_port_command="-p 53:$DNS_PORT/udp"
   fi
-
   echo "starting consul container"
   run-command docker run -d $dns_port_command --net ${CALICO_NET} --ip $local_ip --name $CONSUL \
               -h $CONSUL.service.consul $CONSUL_IMAGE -server -advertise $local_ip -bootstrap
-
   set-host-ip $CONSUL $local_ip
-}
-
-_amb-server-ssh-keygen(){
-  docker exec $AMBARI_SERVER_NAME  sh -c "echo -e  'y\n'|ssh-keygen -q -t rsa -N '' -f ~/.ssh/id_rsa"
 }
 
 amb-start-ambari-server() {
@@ -197,9 +161,6 @@ amb-start-ambari-server() {
 
   run-command consul-register-service $AMBARI_SERVER_NAME $ambari_server_ip
   run-command consul-register-service ambari-8080 $ambari_server_ip
-
-  _amb-config-nameserver
-  _amb-server-ssh-keygen
 }
 
 amb-start-mysql() {
@@ -331,8 +292,36 @@ _amb-config-mysql-driver(){
   docker exec $AMBARI_SERVER_NAME sh -c "ambari-server setup --jdbc-db=mysql --jdbc-driver=/usr/share/java/mysql-connector-java.jar"
 }
 
-_amb-start-service-after-server(){
-  _amb-ssh-passwdless
+_amb-config-nameserver() {
+  # server can get the Internet
+  local nameserver=$(docker exec $CONSUL  sh -c "sed -n '/.*nameserver.*/p' /etc/resolv.conf")
+  docker exec $AMBARI_SERVER_NAME  sh -c "echo '$nameserver' >> /etc/resolv.conf"
+  docker exec $AMBARI_SERVER_NAME  sh -c "cat /etc/resolv.conf"
+}
+
+_amb-copy-ssh-to-agent(){
+  local node_name=${1:?"Usage: _amb-copy-ssh-to-agent <node_name> "}
+  local host_name="$node_name.service.consul"
+  docker exec $AMBARI_SERVER_NAME  sh -c "ssh-keyscan $host_name 2>&1 | sort -u - ~/.ssh/known_hosts > ~/.ssh/tmp_hosts"
+  docker exec $AMBARI_SERVER_NAME  sh -c "mv ~/.ssh/tmp_hosts ~/.ssh/known_hosts"
+  docker exec $AMBARI_SERVER_NAME  sh -c "sshpass -p Zasd_1234 ssh-copy-id root@${host_name}"
+}
+
+_amb-server-to-agents-passwdless() {
+  local agent_list=$(_etcdctl ls /ips | egrep "amb[0-9]+" | awk -F / '{print $3}')
+  for node_name in $agent_list; do
+    _amb-copy-ssh-to-agent $node_name
+  done
+}
+
+_amb-server-ssh-keygen(){
+  docker exec $AMBARI_SERVER_NAME  sh -c "echo -e  'y\n'|ssh-keygen -q -t rsa -N '' -f ~/.ssh/id_rsa"
+}
+
+_amb-start-services-after-server-started(){
+  _amb-config-nameserver
+  _amb-server-ssh-keygen
+  _amb-server-to-agents-passwdless
   # config hive connect exist mysql
   _amb-config-mysql-driver
 }
@@ -357,8 +346,8 @@ amb-start-cluster() {
   done
 
   sleep 5
-  pdsh -w $first_host bash ~/$0 _amb-start-service-after-server
-  
+  pdsh -w $first_host bash ~/$0 _amb-start-services-after-server-started
+
   echo "test ambari started "
   amb-test-amb-server-start
   
@@ -497,20 +486,16 @@ amb-get-unusage-ip(){
   eval "echo $ip_range" | tr " " \\n | grep -v $network_usage_ips $etcd_usage_ips | sort -R | head -n $ip_nums | paste -sd ','
 }
 
-
 amb-add-new-agent(){
   local host=${1:?"Usage: amb-add-new-agent <host> <amb-agent-num>"}
   local agent_num=${2:?"Usage: amb-add-new-agent <host> <amb-agent-num>"}
 
   local first_host=$(_get-first-host)
   _copy_this_sh
-
-
-  _copy_this_sh
+  
   pdsh -w $host bash ~/$0 amb-start-agent $agent_num
-  pdsh -w $first_host bash ~/$0 _amb-ssh-passwdless
+  pdsh -w $first_host bash ~/$0 _amb-server-to-agents-passwdless
 }
-
 
 # call arguments verbatim:
 $@
