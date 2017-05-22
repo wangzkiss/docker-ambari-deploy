@@ -75,7 +75,12 @@ pre-deploy() {
 
 _add-host-to-env-sh(){
     local host=$1
-    sed -i "s/HOST_LIST:=\(.*\)\}/HOST_LIST:=\1,$host\}/g" ./env.sh
+    local env_path="./env.sh"
+    
+    if egrep "HOST_LIST:=" $env_path | grep -q "$host"; then
+        : "do nothing"
+    else
+        sed -i "s/HOST_LIST:=\(.*\)\}/HOST_LIST:=\1,$host\}/g" $env_path
 }
 
 add-new-host() {
