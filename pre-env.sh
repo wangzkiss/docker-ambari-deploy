@@ -43,11 +43,13 @@ _config-docker() {
     "live-restore": true,
     "registry-mirrors": ["https://80kate9y.mirror.aliyuncs.com"]
 }' > /etc/docker/daemon.json
-
+    
+    echo "Docker deamon restarting ............"
     systemctl restart docker
 }
 
 _pre-host(){
+    echo "Installing tools...................."
     # jq parse curl json
     yum install -y epel-release pdsh docker-io jq
     _config-docker
@@ -76,11 +78,12 @@ pre-deploy() {
 _add-host-to-env-sh(){
     local host=$1
     local env_path="./env.sh"
-    
+
     if egrep "HOST_LIST:=" $env_path | grep -q "$host"; then
         : "do nothing"
     else
         sed -i "s/HOST_LIST:=\(.*\)\}/HOST_LIST:=\1,$host\}/g" $env_path
+    fi
 }
 
 add-new-host() {

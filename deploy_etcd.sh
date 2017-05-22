@@ -25,8 +25,9 @@ _get-etcd-host-list() {
 }
 
 etcd-start() {
-    local host_num=$(awk '{print NF}' <<< "$HOST_FOR_LIST")
+    _copy_this_sh
 
+    local host_num=$(awk '{print NF}' <<< "$HOST_FOR_LIST")
     if [ $host_num -lt 3 ]; then
         one-etcd-start
     else
@@ -35,64 +36,77 @@ etcd-start() {
 }
 
 one-etcd-start() {
-    local first_host=$(awk '{print $1}' <<< "$HOST_FOR_LIST")
-    local host_ip=$(grep -i $first_host /etc/hosts | awk '{print $1}')
+    local host1=$(_get-first-host)
+    local host1_ip=$(_get-first-host-ip)
 
-    pdsh -w $first_host \
+    pdsh -w $host1 \
         "docker run -d -v /usr/share/ca-certificates/:/etc/ssl/certs -p 2380:2380 -p 2379:2379 \
          --restart always \
          --name etcd twang2218/etcd:v2.3.7 \
          -name etcd1 \
+         -advertise-client-urls http://$host1_ip:2379 \
+         -listen-client-urls http://0.0.0.0:2379 \
+         -initial-advertise-peer-urls http://$host1_ip:2380 \
+         -listen-peer-urls http://0.0.0.0:2380 \
+         -initial-cluster-token etcd-cluster-1 \
+         -initial-cluster etcd1=http://$host1_ip:2380 \
+         -initial-cluster-state new"
+}
+
+three-etcd-start() {
+    local host1=$(_get-first-host)
+    local host2=$(_get-second-host)
+    local host3=$(_get-third-host)
+
+    local host1_ip=$(_get-first-host-ip)
+    local host2_ip=$(_get-second-host-ip)
+    local host3_ip=$(_get-third-host-ip)
+
+    _three-etcd-docker-start host1 host1_ip 1 host1_ip host2_ip host3_ip
+    _three-etcd-docker-start host2 host2_ip 2 host1_ip host2_ip host3_ip
+    _three-etcd-docker-start host3 host3_ip 3 host1_ip host2_ip host3_ip
+}
+
+_three-etcd-docker-start(){
+    local host=$1; host_ip=$2; node_num=$3
+    local host1_ip=$4; host2_ip=$5; host3_ip=$6
+
+    pdsh -w $host \
+        "docker run -d -v /usr/share/ca-certificates/:/etc/ssl/certs -p 2380:2380 -p 2379:2379 \
+         --restart always \
+         --name etcd twang2218/etcd:v2.3.7  \
+         -name etcd${node_num} \
          -advertise-client-urls http://$host_ip:2379 \
          -listen-client-urls http://0.0.0.0:2379 \
          -initial-advertise-peer-urls http://$host_ip:2380 \
          -listen-peer-urls http://0.0.0.0:2380 \
          -initial-cluster-token etcd-cluster-1 \
-         -initial-cluster etcd1=http://$host_ip:2380 \
+         -initial-cluster etcd1=http://$host1_ip:2380,etcd2=http://$host2_ip:2380,etcd3=http://$host3_ip:2380 \
          -initial-cluster-state new"
-}
-
-three-etcd-start() {
-    _copy_this_sh
-
-    local host1=$(awk '{print $1}' <<< "$HOST_FOR_LIST")
-    local host2=$(awk '{print $2}' <<< "$HOST_FOR_LIST")
-    local host3=$(awk '{print $3}' <<< "$HOST_FOR_LIST")
-
-    local host1_ip=$(grep -i ${host1} /etc/hosts | awk '{print $1}')
-    local host2_ip=$(grep -i ${host2} /etc/hosts | awk '{print $1}')
-    local host3_ip=$(grep -i ${host3} /etc/hosts | awk '{print $1}')
-
-    for host in host1 host2 host3; do
-        local host_ip=$(grep -i ${!host} /etc/hosts | awk '{print $1}')
-
-        pdsh -w ${!host} \
-            "docker run -d -v /usr/share/ca-certificates/:/etc/ssl/certs -p 2380:2380 -p 2379:2379 \
-             --restart always \
-             --name etcd twang2218/etcd:v2.3.7  \
-             -name etcd${host: -1} \
-             -advertise-client-urls http://$host_ip:2379 \
-             -listen-client-urls http://0.0.0.0:2379 \
-             -initial-advertise-peer-urls http://$host_ip:2380 \
-             -listen-peer-urls http://0.0.0.0:2380 \
-             -initial-cluster-token etcd-cluster-1 \
-             -initial-cluster etcd1=http://$host1_ip:2380,etcd2=http://$host2_ip:2380,etcd3=http://$host3_ip:2380 \
-             -initial-cluster-state new"
-    done
-}
-
-_get-first-host-ip() {
-    local host=$(_get-first-host)
-    grep -i $host /etc/hosts | awk '{print $1}'
 }
 
 _get-second-host() {
     echo $HOST_FOR_LIST | awk '{print $2}'
 }
 
+_get-third-host() {
+    echo $HOST_FOR_LIST | awk '{print $3}'
+}
+
+_get-first-host-ip() {
+    _get-host-ip $(_get-first-host)
+}
+
 _get-second-host-ip() {
-    local host=$(_get-second-host)
-    grep -i $host /etc/hosts | awk '{print $2}'
+    _get-host-ip $(_get-second-host)
+}
+
+_get-third-host-ip() {
+    _get-host-ip $(_get-third-host)
+}
+
+_get-host-ip(){
+    grep -i $1 /etc/hosts | awk '{print $1}'
 }
 
 config-docker-daemon-with-etcd() {
@@ -139,7 +153,7 @@ calico-start() {
     _copy_this_sh
     
     for host in $HOST_FOR_LIST; do
-        local host_ip=$(grep -i $host /etc/hosts | awk '{print $1}')
+        local host_ip=$(_get-host-ip $host)
         pdsh -w $host bash ~/$0 _local_calico_start $etcd_cluster $host_ip
     done
     sleep 5
@@ -225,38 +239,40 @@ test-calico-net-conn() {
     _rm-workload-test-container $second_host
 }
 
-_clean-all-container() {
-    docker stop $(docker ps -a -q)
-    docker rm $(docker ps -a -q)
+_clean-network-container() {
+    docker stop $(docker ps -f network=$CALICO_NET -a -q)
+    docker rm $(docker ps -f network=$CALICO_NET -a -q)
 }
 
 docker-stop-all() {
     _copy_this_sh
-    pdsh -w $HOST_LIST bash ~/$0 _clean-all-container
-}
-
-_copy_hosts() {
-    pdcp -w $HOST_LIST /etc/hosts /etc/hosts
+    pdsh -w $HOST_LIST bash ~/$0 _clean-network-container
 }
 
 add-new-host(){
     local host=${1:?"Usage add-new-host <host>"}
+    local host_ip=$(_get-host-ip $host)
     local etcd_cluster=$(_get-etcd-ip-list etcd)
+    
     _copy_this_sh $host
 
-    pdsh -w $host bash ~/$0 _local-config-docker $etcd_cluster
     # copy calicoctl
     pdcp -w $host ./calicoctl /usr/local/bin/calicoctl
     
-    local host_ip=$(grep -i $host /etc/hosts | awk '{print $1}')
-    pdsh -w $host bash ~/$0 _local_calico_start $etcd_cluster $host_ip
-
-    pdsh -w $host calicoctl node status
+    pdsh -w $host bash ~/$0 _local-add-new-host $host_ip $etcd_cluster
 
 }
 
+_local-add-new-host(){
+    local host_ip=$1
+    local etcd_cluster=$2
+    _clean-network-container
+    _local-config-docker $etcd_cluster
+    _local_calico_start $etcd_cluster $host_ip
+    calicoctl node status
+}
+
 main() {
-    _copy_hosts
     echo "docker-stop-all starting"
     docker-stop-all
     echo "etcd-open-ports starting"
