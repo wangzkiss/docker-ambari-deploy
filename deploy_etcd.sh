@@ -215,14 +215,12 @@ test-calico-net-conn() {
     _rm-workload-test-container $second_host
 }
 
-_clean-network-container() {
+_local-stop-containers() {
     docker stop $(docker ps -f network=$CALICO_NET -a -q)
-    docker rm $(docker ps -f network=$CALICO_NET -a -q)
 }
 
-docker-clean-network-all() {
-    _copy_this_sh
-    pdsh -w $HOST_LIST bash ~/$0 _clean-network-container
+stop-containers() {
+    pdsh -w $HOST_LIST bash ~/$0 _local-stop-containers
 }
 
 add-new-host(){
@@ -244,15 +242,16 @@ _local-add-new-host(){
     local host_ip=$1
     local etcd_cluster_docker=$2
     local etcd_cluster=$3
-    _clean-network-container
+    _local-stop-containers
     _local-config-docker $etcd_cluster_docker
     _local_calico_start $etcd_cluster $host_ip
     calicoctl node status
 }
 
 main() {
-    echo "docker-clean-network-all starting"
-    docker-clean-network-all
+    _copy_this_sh
+    echo "stop-containers starting"
+    stop-containers
     echo "etcd-open-ports starting"
     etcd-open-ports
     echo "etcd-start starting"
