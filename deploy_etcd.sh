@@ -15,7 +15,7 @@ _stop-etcd-progress() {
 }
 
 _get-etcd-host-list() {
-    local host_num=$(awk '{print NF}' <<< "$HOST_FOR_LIST")
+    local host_num=$(_get-host-num)
 
     if [ $host_num -lt 3 ]; then
         echo $HOST_LIST | awk -F , '{print $1}'
@@ -27,7 +27,7 @@ _get-etcd-host-list() {
 etcd-start() {
     _copy_this_sh
 
-    local host_num=$(awk '{print NF}' <<< "$HOST_FOR_LIST")
+    local host_num=$(_get-host-num)
     if [ $host_num -lt 3 ]; then
         one-etcd-start
     else
@@ -83,30 +83,6 @@ _three-etcd-docker-start(){
          -initial-cluster-token etcd-cluster-1 \
          -initial-cluster etcd1=http://$host1_ip:2380,etcd2=http://$host2_ip:2380,etcd3=http://$host3_ip:2380 \
          -initial-cluster-state new"
-}
-
-_get-second-host() {
-    echo $HOST_FOR_LIST | awk '{print $2}'
-}
-
-_get-third-host() {
-    echo $HOST_FOR_LIST | awk '{print $3}'
-}
-
-_get-first-host-ip() {
-    _get-host-ip $(_get-first-host)
-}
-
-_get-second-host-ip() {
-    _get-host-ip $(_get-second-host)
-}
-
-_get-third-host-ip() {
-    _get-host-ip $(_get-third-host)
-}
-
-_get-host-ip(){
-    grep -i $1 /etc/hosts | awk '{print $1}'
 }
 
 config-docker-daemon-with-etcd() {
@@ -252,6 +228,7 @@ docker-stop-all() {
 add-new-host(){
     local host=${1:?"Usage add-new-host <host>"}
     local host_ip=$(_get-host-ip $host)
+    local etcd_cluster_docker=$(_get-etcd-ip-list etcd)
     local etcd_cluster=$(_get-etcd-ip-list http)
 
     _copy_this_sh $host
@@ -259,15 +236,16 @@ add-new-host(){
     # copy calicoctl
     pdcp -w $host ./calicoctl /usr/local/bin/calicoctl
     
-    pdsh -w $host bash ~/$0 _local-add-new-host $host_ip $etcd_cluster
+    pdsh -w $host bash ~/$0 _local-add-new-host $host_ip $etcd_cluster_docker $etcd_cluster
 
 }
 
 _local-add-new-host(){
     local host_ip=$1
-    local etcd_cluster=$2
+    local etcd_cluster_docker=$2
+    local etcd_cluster=$3
     _clean-network-container
-    _local-config-docker $etcd_cluster
+    _local-config-docker $etcd_cluster_docker
     _local_calico_start $etcd_cluster $host_ip
     calicoctl node status
 }

@@ -28,23 +28,52 @@ _copy_this_sh() {
     pdcp -w $host $0 ~
 }
 
+_get-host-num(){
+    _get-host-num
+}
+
+##########################################################
+# These functions only run on main host, because other node 
+# may the /etc/hosts don't same with main host
+_get-host-ip(){
+    grep -i $1 /etc/hosts | awk '{print $1}'
+}
+
+_get-first-host() {
+    echo $HOST_FOR_LIST | awk '{print $1}'
+}
+
+_get-second-host() {
+    echo $HOST_FOR_LIST | awk '{print $2}'
+}
+
+_get-third-host() {
+    echo $HOST_FOR_LIST | awk '{print $3}'
+}
+
+_get-first-host-ip() {
+    _get-host-ip $(_get-first-host)
+}
+
+_get-second-host-ip() {
+    _get-host-ip $(_get-second-host)
+}
+
+_get-third-host-ip() {
+    _get-host-ip $(_get-third-host)
+}
+
 _get-etcd-ip-list() {
     local input_type=${1:?"Usage:_get-etcd-ip-list <TYPE>(etcd,http)"}
-    local host_num=$(awk '{print NF}' <<< "$HOST_FOR_LIST")
-
-    local host1=$(awk '{print $1}' <<< "$HOST_FOR_LIST")
-    local host1_ip=$(grep -i ${host1} /etc/hosts | awk '{print $1}')
+    local host_num=$(_get-host-num)
+    local host1_ip=$(_get-first-host-ip)
 
     local result=""
-
     if [ $host_num -lt 3 ]; then
         result="etcd://${host1_ip}:2379"
     else
-        local host2=$(awk '{print $2}' <<< "$HOST_FOR_LIST")
-        local host3=$(awk '{print $3}' <<< "$HOST_FOR_LIST")
-
-        local host2_ip=$(grep -i ${host2} /etc/hosts | awk '{print $1}')
-        local host3_ip=$(grep -i ${host3} /etc/hosts | awk '{print $1}')
+        local host2_ip=$(_get-second-host-ip)
+        local host3_ip=$(_get-third-host-ip)
 
         result="etcd://${host1_ip}:2379,etcd://${host2_ip}:2379,etcd://${host3_ip}:2379"
     fi
@@ -56,13 +85,10 @@ _get-etcd-ip-list() {
         echo $result | awk -F , '{print $1}'
     fi
 }
+##########################################################
 
 _etcdctl() {
     docker run  --rm tenstartups/etcdctl --endpoints $(_get-etcd-ip-list http) $@
-}
-
-_get-first-host() {
-    echo $HOST_FOR_LIST | awk '{print $1}'
 }
 
 get-host-ip() {
