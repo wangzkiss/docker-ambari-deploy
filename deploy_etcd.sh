@@ -39,8 +39,8 @@ one-etcd-start() {
     local host1=$(_get-first-host)
     local host1_ip=$(_get-first-host-ip)
 
-    pdsh -w $host1 \
-        "docker run -d -v /usr/share/ca-certificates/:/etc/ssl/certs -p 2380:2380 -p 2379:2379 \
+    pdsh -w $host1 "docker stop etcd && docker rm etcd && \
+        docker run -d -v /usr/share/ca-certificates/:/etc/ssl/certs -p 2380:2380 -p 2379:2379 \
          --restart always \
          --name etcd twang2218/etcd:v2.3.7 \
          -name etcd1 \
@@ -71,8 +71,8 @@ _three-etcd-docker-start(){
     local host=$1; host_ip=$2; node_num=$3
     local host1_ip=$4; host2_ip=$5; host3_ip=$6
 
-    pdsh -w $host \
-        "docker run -d -v /usr/share/ca-certificates/:/etc/ssl/certs -p 2380:2380 -p 2379:2379 \
+    pdsh -w $host "docker stop etcd && docker rm etcd && \
+        docker run -d -v /usr/share/ca-certificates/:/etc/ssl/certs -p 2380:2380 -p 2379:2379 \
          --restart always \
          --name etcd twang2218/etcd:v2.3.7  \
          -name etcd${node_num} \
@@ -220,7 +220,7 @@ _clean-network-container() {
     docker rm $(docker ps -f network=$CALICO_NET -a -q)
 }
 
-docker-stop-all() {
+docker-clean-network-all() {
     _copy_this_sh
     pdsh -w $HOST_LIST bash ~/$0 _clean-network-container
 }
@@ -251,8 +251,8 @@ _local-add-new-host(){
 }
 
 main() {
-    echo "docker-stop-all starting"
-    docker-stop-all
+    echo "docker-clean-network-all starting"
+    docker-clean-network-all
     echo "etcd-open-ports starting"
     etcd-open-ports
     echo "etcd-start starting"
