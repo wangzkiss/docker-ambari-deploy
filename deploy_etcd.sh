@@ -38,9 +38,9 @@ etcd-start() {
 one-etcd-start() {
     local host1=$(_get-first-host)
     local host1_ip=$(_get-first-host-ip)
-
-    pdsh -w $host1 "docker stop etcd && docker rm etcd && \
-        docker run -d -v /usr/share/ca-certificates/:/etc/ssl/certs -p 2380:2380 -p 2379:2379 \
+    pdsh -w $host1 "docker stop etcd && docker rm etcd"
+    pdsh -w $host1 \
+        "docker run -d -v /usr/share/ca-certificates/:/etc/ssl/certs -p 2380:2380 -p 2379:2379 \
          --restart always \
          --name etcd twang2218/etcd:v2.3.7 \
          -name etcd1 \
@@ -70,9 +70,9 @@ three-etcd-start() {
 _three-etcd-docker-start(){
     local host=$1; host_ip=$2; node_num=$3
     local host1_ip=$4; host2_ip=$5; host3_ip=$6
-
-    pdsh -w $host "docker stop etcd && docker rm etcd && \
-        docker run -d -v /usr/share/ca-certificates/:/etc/ssl/certs -p 2380:2380 -p 2379:2379 \
+    pdsh -w $host "docker stop etcd && docker rm etcd"
+    pdsh -w $host \
+        "docker run -d -v /usr/share/ca-certificates/:/etc/ssl/certs -p 2380:2380 -p 2379:2379 \
          --restart always \
          --name etcd twang2218/etcd:v2.3.7  \
          -name etcd${node_num} \
