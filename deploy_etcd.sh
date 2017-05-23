@@ -62,9 +62,9 @@ three-etcd-start() {
     local host2_ip=$(_get-second-host-ip)
     local host3_ip=$(_get-third-host-ip)
 
-    _three-etcd-docker-start host1 host1_ip 1 host1_ip host2_ip host3_ip
-    _three-etcd-docker-start host2 host2_ip 2 host1_ip host2_ip host3_ip
-    _three-etcd-docker-start host3 host3_ip 3 host1_ip host2_ip host3_ip
+    _three-etcd-docker-start $host1 $host1_ip 1 $host1_ip $host2_ip $host3_ip
+    _three-etcd-docker-start $host2 $host2_ip 2 $host1_ip $host2_ip $host3_ip
+    _three-etcd-docker-start $host3 $host3_ip 3 $host1_ip $host2_ip $host3_ip
 }
 
 _three-etcd-docker-start(){

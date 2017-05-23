@@ -90,6 +90,7 @@ add-new-host() {
     local host=${1:?"Usage: add-new-host <host> <passwd>"}
     local passwd=${2:?"sage: add-new-host <host> <passwd>"}
 
+    yum install -y epel-release sshpass pdsh git
     _add-host-to-env-sh $host
 
     _host-ssh-passwd-less $host $passwd
