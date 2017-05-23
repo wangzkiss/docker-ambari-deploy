@@ -90,6 +90,7 @@ amb-start-agent() {
   local agent_nums=$(_etcdctl get /agent-nums)
   local first=1
   local last=$act_agent_size
+  echo "amb-start-agent running ......................"
   if [ -z "$agent_nums" ]; then
     _etcdctl set /agent-nums $act_agent_size
   else
@@ -186,9 +187,9 @@ amb-start-server() {
 amb-start-node() {
   local number=${1:?"Usage: amb-start-node <node_num> <ip>"}
   local local_ip=${2:?"Usage: amb-start-node <node_num> <ip>"}
-
   local consul_ip=$(get-consul-ip)
   local node_name=${NODE_PREFIX}$number
+  echo "amb-start-node running ................."
 
   if [[ "$PULL_IMAGE" == "true" ]]; then
     echo "pulling image"

@@ -3,8 +3,6 @@
 : ${NODE_PREFIX=amb}
 : ${CONSUL:=${NODE_PREFIX}-consul}
 
-: ${HOST_LIST:=dc01,dc02,dc03,dc04,dc05}
-
 # 通过 calico 配置的跨节点网络
 : ${CALICO_NET:=docker_test}
 : ${CALICO_CIDR:=192.0.2.0/24}
@@ -15,6 +13,7 @@
 : ${HADOOP_DATA:=/home/hadoop_data}
 : ${HADOOP_LOG:=/home/hadoop_log}
 
+HOST_LIST=dc01,dc02,dc03,dc04,dc05
 # split by space
 HOST_FOR_LIST=${HOST_LIST//,/ }
 
@@ -23,20 +22,16 @@ _copy_this_sh() {
     if [[ "" == $host ]];then
         host=$HOST_LIST
     fi
-
-    pdcp -w $host env.sh ~
-    pdcp -w $host $0 ~
+    
+    pdcp -w $host /etc/hosts env.sh $0 ~
 }
 
 _get-host-num(){
     awk '{print NF}' <<< "$HOST_FOR_LIST"
 }
 
-##########################################################
-# These functions only run on main host, because other node 
-# may the /etc/hosts don't same with main host
 _get-host-ip(){
-    grep -i $1 /etc/hosts | awk '{print $1}'
+    grep -i $1 ~/hosts | awk '{print $1}'
 }
 
 _get-first-host() {
@@ -85,7 +80,6 @@ _get-etcd-ip-list() {
         echo $result | awk -F , '{print $1}'
     fi
 }
-##########################################################
 
 _etcdctl() {
     docker run  --rm tenstartups/etcdctl --endpoints $(_get-etcd-ip-list http) $@
