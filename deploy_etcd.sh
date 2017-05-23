@@ -252,8 +252,8 @@ docker-stop-all() {
 add-new-host(){
     local host=${1:?"Usage add-new-host <host>"}
     local host_ip=$(_get-host-ip $host)
-    local etcd_cluster=$(_get-etcd-ip-list etcd)
-    
+    local etcd_cluster=$(_get-etcd-ip-list http)
+
     _copy_this_sh $host
 
     # copy calicoctl
