@@ -29,7 +29,7 @@ _copy_this_sh() {
 }
 
 _get-host-num(){
-    _get-host-num
+    awk '{print NF}' <<< "$HOST_FOR_LIST"
 }
 
 ##########################################################
