@@ -1,7 +1,7 @@
 #!/usr/bin/bash
 
 # import common variable
-. ./env.sh
+source ${BASH_SOURCE[0]%/*}/env.sh
 
 : ${AMBARI_SERVER_NAME:=${NODE_PREFIX}-server}
 : ${AMBARI_SERVER_IMAGE:="registry.cn-hangzhou.aliyuncs.com/tospur/amb-server:latest"}

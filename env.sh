@@ -9,7 +9,7 @@
 : ${CALICO_NET:=docker_test}
 : ${CALICO_CIDR:=192.0.2.0/24}
 : ${SH_FILE_PATH:=/tmp}
-: ${ENV_FILE:=./env.sh}
+: ${ENV_FILE:=${BASH_SOURCE[0]%/*}/env.sh}
 
 # 本地 HDP，HDP-UTIL 包所在的路径
 HDP_PKG_DIR=/home/hdp_httpd_home/
@@ -24,7 +24,7 @@ _copy_this_sh() {
     if [[ "" == $host ]];then
         host=$HOST_LIST
     fi
-    pdcp -w $host /etc/hosts env.sh $0 $SH_FILE_PATH
+    run-command pdcp -w $host /etc/hosts $ENV_FILE $0 $SH_FILE_PATH
 }
 
 _get-host-num(){
