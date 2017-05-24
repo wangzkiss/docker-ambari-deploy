@@ -1,7 +1,7 @@
 #!/usr/bin/bash
 
 # import common variable
-source ${BASH_SOURCE[0]%/*}/env.sh
+source $(dirname $0)/env.sh
 
 _change-ip() {
     local GATEWAY=${1:?"Usage:change-ip <GATEWAY> <IPADDR>"}

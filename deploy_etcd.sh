@@ -1,7 +1,7 @@
 #!/usr/bin/bash
 
 # import common variable
-source ${BASH_SOURCE[0]%/*}/env.sh
+source $(dirname $0)/env.sh
 
 etcd-open-ports() {
     local etcd_host_list=$(_get-etcd-host-list)
