@@ -240,19 +240,19 @@ _check-input() {
       echo "$HDP_PKG_DIR doesn't exist"
       exit
     fi
-    sed -i "s/HDP_PKG_DIR=\(.*\)/HDP_PKG_DIR=$HDP_PKG_DIR/g" $ENV_FILE
+    sed -i "s/HDP_PKG_DIR=\(.*\)/HDP_PKG_DIR=${HDP_PKG_DIR//\//\\/}/g" $ENV_FILE
     echo $HDP_PKG_DIR
     read -p "Please input Hadoop data storage dir, default:$HADOOP_DATA, input:" INPUT
     if [ "$INPUT" != "" ];then
         HADOOP_DATA=$INPUT
     fi
-    sed -i "s/HADOOP_DATA=\(.*\)/HADOOP_DATA=$HADOOP_DATA/g" $ENV_FILE
+    sed -i "s/HADOOP_DATA=\(.*\)/HADOOP_DATA=${HADOOP_DATA//\//\\/}/g" $ENV_FILE
     echo $HADOOP_DATA
     read -p "Please input Hadoop log dir, default:$HADOOP_LOG, input:" INPUT
     if [ "$INPUT" != "" ];then
         HADOOP_LOG=$INPUT
     fi
-    sed -i "s/HADOOP_LOG=\(.*\)/HADOOP_LOG=$HADOOP_LOG/g" $ENV_FILE
+    sed -i "s/HADOOP_LOG=\(.*\)/HADOOP_LOG=${HADOOP_LOG//\//\\/}/g" $ENV_FILE
     echo $HADOOP_LOG
 }
 
