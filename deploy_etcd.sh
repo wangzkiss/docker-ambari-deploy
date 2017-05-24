@@ -88,7 +88,7 @@ _three-etcd-docker-start(){
 config-docker-daemon-with-etcd() {
     _copy_this_sh
     local etcd_cluster=$(_get-etcd-ip-list etcd)
-    pdsh -w $HOST_LIST bash ~/$0 _local-config-docker $etcd_cluster
+    pdsh -w $HOST_LIST bash $SH_FILE_PATH/$0 _local-config-docker $etcd_cluster
 }
 
 _local-config-docker() {
@@ -100,7 +100,7 @@ _local-config-docker() {
     else
         sed -i "s/OPTIONS='\(.*\)'/OPTIONS='\1 --cluster-store=${etcd_cluster//\//\\/}'/g" $docker_config
     fi
-    echo "restarting docker daemon......"
+    debug "restarting docker daemon......"
     systemctl restart docker
 }
 
@@ -128,9 +128,9 @@ calico-start() {
     pdcp -w $HOST_LIST ./calicoctl /usr/local/bin/calicoctl
     _copy_this_sh
     
-    for host in $HOST_FOR_LIST; do
+    for host in ${HOST_LIST//,/ }; do
         local host_ip=$(_get-host-ip $host)
-        pdsh -w $host bash ~/$0 _local_calico_start $etcd_cluster $host_ip
+        pdsh -w $host bash $SH_FILE_PATH/$0 _local_calico_start $etcd_cluster $host_ip
     done
     sleep 5
     pdsh -w $(_get-first-host) calicoctl node status
@@ -220,7 +220,7 @@ _local-stop-containers() {
 }
 
 stop-containers() {
-    pdsh -w $HOST_LIST bash ~/$0 _local-stop-containers
+    pdsh -w $HOST_LIST bash $SH_FILE_PATH/$0 _local-stop-containers
 }
 
 add-new-host(){
@@ -234,7 +234,7 @@ add-new-host(){
     # copy calicoctl
     pdcp -w $host ./calicoctl /usr/local/bin/calicoctl
     
-    pdsh -w $host bash ~/$0 _local-add-new-host $host_ip $etcd_cluster_docker $etcd_cluster
+    pdsh -w $host bash $SH_FILE_PATH/$0 _local-add-new-host $host_ip $etcd_cluster_docker $etcd_cluster
 
 }
 
@@ -250,19 +250,19 @@ _local-add-new-host(){
 
 main() {
     _copy_this_sh
-    echo "stop-containers starting"
+    debug "stop-containers starting"
     stop-containers
-    echo "etcd-open-ports starting"
+    debug "etcd-open-ports starting"
     etcd-open-ports
-    echo "etcd-start starting"
+    debug "etcd-start starting"
     etcd-start
-    echo "config-docker-daemon-with-etcd starting"
+    debug "config-docker-daemon-with-etcd starting"
     config-docker-daemon-with-etcd
-    echo "calico-start starting"
+    debug "calico-start starting"
     calico-start
-    echo "calico-create-net starting"
+    debug "calico-create-net starting"
     calico-create-net
-    echo "test-calico-net-conn starting"
+    debug "test-calico-net-conn starting"
     test-calico-net-conn
 }
 

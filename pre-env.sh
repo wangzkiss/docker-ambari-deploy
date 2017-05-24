@@ -33,7 +33,7 @@ _hosts-ssh-passwd-less() {
     local passwd=${1:?"Usage:_install-pdsh <PASSWD>"}
     # yum -y update
     echo -e  'y\n'|ssh-keygen -q -t rsa -N '' -f ~/.ssh/id_rsa
-    for host in $HOST_FOR_LIST; do
+    for host in ${HOST_LIST//,/ }; do
         _host-ssh-passwd-less $host $passwd
     done
 }
@@ -44,12 +44,12 @@ _config-docker() {
     "registry-mirrors": ["https://80kate9y.mirror.aliyuncs.com"]
 }' > /etc/docker/daemon.json
     
-    echo "Docker deamon restarting ............"
+    debug "Docker deamon restarting ............"
     systemctl restart docker
 }
 
 _pre-host(){
-    echo "Installing tools...................."
+    debug "Installing tools...................."
     # jq parse curl json
     yum install -y epel-release pdsh docker-io jq
     _config-docker
@@ -67,22 +67,25 @@ pre-network() {
 
 pre-deploy() {
     local passwd=${1:?"Usage: pre-deploy <host-passwd>"}
+    read -p "Please input host list comma as segmentation default:[$HOST_LIST] input:" INPUT
+    HOST_LIST=$INPUT
+    echo $HOST_LIST
+
+    sed -i "s/HOST_LIST=\(.*\)/HOST_LIST=$HOST_LIST/g" $ENV_FILE
     # install on local server
     yum install -y epel-release sshpass pdsh git
 
     _hosts-ssh-passwd-less $passwd
     _copy_this_sh
-    pdsh -w $HOST_LIST bash ~/$0 _pre-host
+    pdsh -w $HOST_LIST bash $SH_FILE_PATH/$0 _pre-host
 }
 
 _add-host-to-env-sh(){
     local host=$1
-    local env_path="./env.sh"
-
-    if egrep "HOST_LIST=" $env_path | grep -q "$host"; then
+    if egrep "HOST_LIST=" $ENV_FILE | grep -q "$host"; then
         : "do nothing"
     else
-        sed -i "s/HOST_LIST=\(.*\)/HOST_LIST=\1,$host/g" $env_path
+        sed -i "s/HOST_LIST=\(.*\)/HOST_LIST=\1,$host/g" $ENV_FILE
     fi
 }
 
@@ -95,7 +98,7 @@ add-new-host() {
 
     _host-ssh-passwd-less $host $passwd
     _copy_this_sh $host
-    pdsh -w $host bash ~/$0 _pre-host 
+    pdsh -w $host bash $SH_FILE_PATH/$0 _pre-host 
 }
 
 $@

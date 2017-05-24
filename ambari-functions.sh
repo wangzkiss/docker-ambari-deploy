@@ -12,11 +12,11 @@
 : ${MYSQL_PASSWD:=123456}
 : ${DOCKER_OPTS:=""}
 : ${CONSUL_IMAGE:="sequenceiq/consul:v0.5.0-v6"}
-: ${DEBUG:=1}
+
 : ${SLEEP_TIME:=2}
 : ${DNS_PORT:=53}
 : ${EXPOSE_DNS:=false}
-: ${DRY_RUN:=false}
+
 : ${PULL_IMAGE:=false}
 
 amb-settings() {
@@ -32,27 +32,16 @@ amb-settings() {
   CONSUL=$CONSUL
   CONSUL_IMAGE=$CONSUL_IMAGE
   EXPOSE_DNS=$EXPOSE_DNS
-  DRY_RUN=$DRY_RUN
   CALICO_NET=$CALICO_NET
   HDP_PKG_DIR=$HDP_PKG_DIR
   HTTPD_NAME=$HTTPD_NAME
 EOF
 }
 
-run-command() {
-  CMD="$@"
-  if [[ "$DRY_RUN" == "false" ]]; then
-    debug "$CMD"
-    "$@"
-  else
-    debug [DRY_RUN] "$CMD"
-  fi
-}
-
 amb-clean() {
   unset NODE_PREFIX AMBARI_SERVER_NAME AMBARI_SERVER_IMAGE AMBARI_AGENT_IMAGE HTTPD_IMAGE CONSUL \
         CONSUL_IMAGE DEBUG SLEEP_TIME EXPOSE_DNS \
-        DRY_RUN CALICO_NET HDP_PKG_DIR HTTPD_NAME
+        CALICO_NET HDP_PKG_DIR HTTPD_NAME
 }
 
 get-ambari-server-ip() {
@@ -64,33 +53,12 @@ amb-members() {
   docker run  --net ${CALICO_NET} --rm appropriate/curl sh -c "curl http://$consul_ip:8500/v1/catalog/nodes"
 }
 
-debug() {
-  [ ${DEBUG} -gt 0 ] && echo "[DEBUG] $@" 1>&2
-}
-
-docker-ps() {
-  docker inspect --format="{{.Name}} [{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}] {{.Config.Image}} {{.Config.Entrypoint}} {{.Config.Cmd}}" $(docker ps -q)
-}
-
-docker-psa() {
-  docker inspect --format="{{.Name}} [{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}] {{.Config.Image}} {{.Config.Entrypoint}} {{.Config.Cmd}}" $(docker ps -qa)
-}
-
-amb-clean-etcd() {
-  _etcdctl rm /agent-nums
-
-  local agent_list=$(_etcdctl ls /ips | egrep "amb[0-9]+")
-  for i in $agent_list; do
-    _etcdctl rm $i 
-  done
-}
-
 amb-start-agent() {
   local act_agent_size=${1:?"Usage:amb-start-agent <AGENT_NUM>"}
   local agent_nums=$(_etcdctl get /agent-nums)
   local first=1
   local last=$act_agent_size
-  echo "amb-start-agent running ......................"
+  debug "amb-start-agent running ......................"
   if [ -z "$agent_nums" ]; then
     _etcdctl set /agent-nums $act_agent_size
   else
@@ -128,7 +96,7 @@ amb-start-consul() {
   if [[ "$EXPOSE_DNS" == "true" ]]; then
      dns_port_command="-p 53:$DNS_PORT/udp"
   fi
-  echo "starting consul container"
+  debug "starting consul container"
   run-command docker run -d $dns_port_command --net ${CALICO_NET} --ip $local_ip --name $CONSUL \
               -h $CONSUL.service.consul $CONSUL_IMAGE -server -advertise $local_ip -bootstrap
   set-host-ip $CONSUL $local_ip
@@ -139,12 +107,12 @@ amb-start-ambari-server() {
 
   local consul_ip=$(get-consul-ip)
   if [[ "$PULL_IMAGE" == "true" ]]; then
-    echo "pulling image"
+    debug "pulling image"
     docker pull $AMBARI_SERVER_IMAGE
   fi
   # remove log dir
   rm -rf $HADOOP_LOG/$AMBARI_SERVER_NAME
-  echo "starting amb-server"
+  debug "starting amb-server"
   run-command docker run -d $DOCKER_OPTS --net ${CALICO_NET} --ip $local_ip \
               --privileged --name $AMBARI_SERVER_NAME \
               -v $HADOOP_LOG/$AMBARI_SERVER_NAME:/var/log \
@@ -173,13 +141,13 @@ amb-start-server() {
   IFS=', ' read -r -a array <<< "$ip_list"
 
   amb-start-consul ${array[0]}
-  sleep 5
+  sleep $SLEEP_TIME
   amb-start-mysql ${array[1]}
-  sleep 5
+  sleep $SLEEP_TIME
   amb-start-ambari-server ${array[2]}
-  sleep 5
+  sleep $SLEEP_TIME
   amb-start-HDP-httpd ${array[3]}
-  echo "replacing ambari.repo url"
+  debug "replacing ambari.repo url"
   # agent register will copy ambari.repo from server
   amb-replace-ambari-url $AMBARI_SERVER_NAME
 }
@@ -189,10 +157,10 @@ amb-start-node() {
   local local_ip=${2:?"Usage: amb-start-node <node_num> <ip>"}
   local consul_ip=$(get-consul-ip)
   local node_name=${NODE_PREFIX}$number
-  echo "amb-start-node running ................."
+  debug "amb-start-node running ................."
 
   if [[ "$PULL_IMAGE" == "true" ]]; then
-    echo "pulling image"
+    debug "pulling image"
     docker pull $AMBARI_AGENT_IMAGE
   fi
 
@@ -254,13 +222,13 @@ amb-tool-get-HDP-url() {
 }
 
 amb-tool-get-all-setting() {
-  echo "=============HDP url============="
+  debug "=============HDP url============="
   amb-tool-get-HDP-url
-  echo "=============agent host list============="
+  debug "=============agent host list============="
   amb-tool-get-agent-host-list
-  echo "=============server sshkey============="
+  debug "=============server sshkey============="
   amb-tool-get-server-sshkey
-  echo "=========================="
+  debug "=========================="
 }
 
 _check-input() {
@@ -272,16 +240,19 @@ _check-input() {
       echo "$HDP_PKG_DIR doesn't exist"
       exit
     fi
+    sed -i "s/HDP_PKG_DIR=\(.*\)/HDP_PKG_DIR=$HDP_PKG_DIR/g" $ENV_FILE
     echo $HDP_PKG_DIR
     read -p "Please input Hadoop data storage dir, default:$HADOOP_DATA, input:" INPUT
     if [ "$INPUT" != "" ];then
         HADOOP_DATA=$INPUT
     fi
+    sed -i "s/HADOOP_DATA=\(.*\)/HADOOP_DATA=$HADOOP_DATA/g" $ENV_FILE
     echo $HADOOP_DATA
     read -p "Please input Hadoop log dir, default:$HADOOP_LOG, input:" INPUT
     if [ "$INPUT" != "" ];then
         HADOOP_LOG=$INPUT
     fi
+    sed -i "s/HADOOP_LOG=\(.*\)/HADOOP_LOG=$HADOOP_LOG/g" $ENV_FILE
     echo $HADOOP_LOG
 }
 
@@ -332,25 +303,25 @@ amb-start-cluster() {
 
   _check-input
 
-  echo "First clean cluster ......"
+  debug "First clean cluster ......"
   amb-clean-cluster
 
-  echo 'Now starting the cluster ......'
+  debug "Now starting the cluster ......"
   _copy_this_sh
 
   amb-start-server
-  sleep 5
-  for host in $HOST_FOR_LIST; do
-    pdsh -w $host bash ~/$0 amb-start-agent $agents_per_host
+  sleep $SLEEP_TIME
+  for host in ${HOST_LIST//,/ }; do
+    pdsh -w $host bash $SH_FILE_PATH/$0 amb-start-agent $agents_per_host
   done
 
-  sleep 5
+  sleep $SLEEP_TIME
   _amb-start-services-after-server-started
 
-  echo "test ambari started "
+  debug "test ambari started "
   amb-test-amb-server-start
   
-  echo "print Ambari config settings"
+  debug "print Ambari config settings"
   amb-tool-get-all-setting
 }
 
@@ -362,22 +333,30 @@ amb-clean-agent() {
 amb-clean-server() {
   docker stop $AMBARI_SERVER_NAME $CONSUL $HTTPD_NAME $MYSQL_SERVER_NAME
   docker rm -v $AMBARI_SERVER_NAME $CONSUL $HTTPD_NAME $MYSQL_SERVER_NAME
+
+  amb-clean-etcd
+}
+
+amb-clean-etcd() {
+  _etcdctl rm /agent-nums
+
+  local agent_list=$(_etcdctl ls /ips | egrep "amb[0-9]+")
+  for i in $agent_list; do
+    _etcdctl rm $i 
+  done
 }
 
 amb-clean-cluster() {
   local count=0
   _copy_this_sh
 
-  for host in $HOST_FOR_LIST
+  for host in ${HOST_LIST//,/ }
   do
     if [ $count -eq 0 ];then
-      pdsh -w $host bash ~/$0 amb-clean-server
-      pdsh -w $host bash ~/$0 amb-clean-etcd
+      pdsh -w $host bash $SH_FILE_PATH/$0 amb-clean-server
     fi
 
-    sleep 5
-    pdsh -w $host bash ~/$0 amb-clean-agent
-
+    pdsh -w $host bash $SH_FILE_PATH/$0 amb-clean-agent
     ((count+=1))
   done
 }
@@ -389,7 +368,7 @@ amb-test-amb-server-start() {
     if curl ${ambari_server_ip}:8080; then
       break
     else
-      sleep 5
+      sleep $SLEEP_TIME
     fi
   done
 }
@@ -397,7 +376,7 @@ amb-test-amb-server-start() {
 amb-get-agent-stay-host(){
   local input_num=${1:?"amb-get-agent-stay-host <number>"}
   local agent_nums=$(_etcdctl get /agent-nums)
-  local host_num=$(awk '{print NF}' <<< "$HOST_FOR_LIST")
+  local host_num=$(awk '{print NF}' <<< "${HOST_LIST//,/ }")
   local each_host_agents=$((agent_nums/host_num))
   local first=$(($input_num/$each_host_agents))
   local last=$(($input_num%$each_host_agents))
@@ -406,7 +385,7 @@ amb-get-agent-stay-host(){
   if [ $last -gt 0 ]; then
     index=$(($index+1))
   fi
-  awk -v var=$index '{print $var}' <<< "$HOST_FOR_LIST"
+  awk -v var=$index '{print $var}' <<< "${HOST_LIST//,/ }"
 }
 
 _get-local-amb-node-name() {
@@ -426,7 +405,7 @@ amb-publish-hadoop-port(){
     local host_name="$i.service.consul"
     # server node must have ${NODE_PREFIX}1 amb-agent
     if docker exec $amb_node_name  sh -c "nc -w 2 -v ${host_name} $port < /dev/null"; then
-      echo "$host_name have $port hiver server port"
+      echo "$host_name have $port hive server port"
       amb_stay_host=$i
       amb_stay_host_ip=$(get-host-ip $amb_stay_host)
       break
@@ -438,7 +417,7 @@ amb-publish-hadoop-port(){
 
   _etcdctl set /hadoop/open_ports/$port "${amb_stay_host}-${amb_stay_host_ip}" 
 
-  pdsh -w $locate_host bash ~/$0 amb-publish-port $port ${amb_stay_host_ip}
+  pdsh -w $locate_host bash $SH_FILE_PATH/$0 amb-publish-port $port ${amb_stay_host_ip}
 }
 
 amb-publish-hadoop-ports() {
@@ -492,7 +471,7 @@ amb-add-new-agent(){
   local first_host=$(_get-first-host)
   _copy_this_sh $host
 
-  pdsh -w $host bash ~/$0 amb-start-agent $agent_num
+  pdsh -w $host bash $SH_FILE_PATH/$0 amb-start-agent $agent_num
   _amb-server-to-agents-passwdless
 }
 

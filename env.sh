@@ -1,49 +1,50 @@
 #!/usr/bin/bash
+: ${DEBUG:=1}
+: ${DRY_RUN:=false}
 
-: ${NODE_PREFIX=amb}
+: ${NODE_PREFIX:=amb}
 : ${CONSUL:=${NODE_PREFIX}-consul}
 
 # 通过 calico 配置的跨节点网络
 : ${CALICO_NET:=docker_test}
 : ${CALICO_CIDR:=192.0.2.0/24}
+: ${SH_FILE_PATH:=/tmp}
+: ${ENV_FILE:=./env.sh}
 
 # 本地 HDP，HDP-UTIL 包所在的路径
-: ${HDP_PKG_DIR:=/home/hdp_httpd_home/}
+HDP_PKG_DIR=/home/hdp_httpd_home/
 # docker volume mount to docker
-: ${HADOOP_DATA:=/home/hadoop_data}
-: ${HADOOP_LOG:=/home/hadoop_log}
+HADOOP_DATA=/home/hadoop_data
+HADOOP_LOG=/home/hadoop_log
 
 HOST_LIST=dc01,dc02,dc03,dc04,dc05
-# split by space
-HOST_FOR_LIST=${HOST_LIST//,/ }
 
 _copy_this_sh() {
     local host=$1
     if [[ "" == $host ]];then
         host=$HOST_LIST
     fi
-    
-    pdcp -w $host /etc/hosts env.sh $0 ~
+    pdcp -w $host /etc/hosts env.sh $0 $SH_FILE_PATH
 }
 
 _get-host-num(){
-    awk '{print NF}' <<< "$HOST_FOR_LIST"
+    awk '{print NF}' <<< "${HOST_LIST//,/ }"
 }
 
 _get-host-ip(){
-    grep -i $1 ~/hosts | awk '{print $1}'
+    grep -i $1 $SH_FILE_PATH/hosts | awk '{print $1}'
 }
 
 _get-first-host() {
-    echo $HOST_FOR_LIST | awk '{print $1}'
+    echo ${HOST_LIST//,/ } | awk '{print $1}'
 }
 
 _get-second-host() {
-    echo $HOST_FOR_LIST | awk '{print $2}'
+    echo ${HOST_LIST//,/ } | awk '{print $2}'
 }
 
 _get-third-host() {
-    echo $HOST_FOR_LIST | awk '{print $3}'
+    echo ${HOST_LIST//,/ } | awk '{print $3}'
 }
 
 _get-first-host-ip() {
@@ -69,7 +70,6 @@ _get-etcd-ip-list() {
     else
         local host2_ip=$(_get-second-host-ip)
         local host3_ip=$(_get-third-host-ip)
-
         result="etcd://${host1_ip}:2379,etcd://${host2_ip}:2379,etcd://${host3_ip}:2379"
     fi
 
@@ -83,6 +83,20 @@ _get-etcd-ip-list() {
 
 _etcdctl() {
     docker run  --rm tenstartups/etcdctl --endpoints $(_get-etcd-ip-list http) $@
+}
+
+debug() {
+  [ ${DEBUG} -gt 0 ] && echo "[DEBUG] $@" 1>&2
+}
+
+run-command() {
+  CMD="$@"
+  if [[ "$DRY_RUN" == "false" ]]; then
+    debug "$CMD"
+    "$@"
+  else
+    debug [DRY_RUN] "$CMD"
+  fi
 }
 
 get-host-ip() {
@@ -113,4 +127,12 @@ consul-register-service() {
         }
       }\" http://$consul_ip:8500/v1/catalog/register
   "
+}
+
+docker-ps() {
+  docker inspect --format="{{.Name}} [{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}] {{.Config.Image}} {{.Config.Entrypoint}} {{.Config.Cmd}}" $(docker ps -q)
+}
+
+docker-psa() {
+  docker inspect --format="{{.Name}} [{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}] {{.Config.Image}} {{.Config.Entrypoint}} {{.Config.Cmd}}" $(docker ps -qa)
 }
