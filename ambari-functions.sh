@@ -4,8 +4,6 @@
 source $(dirname $0)/env.sh
 
 : ${AMBARI_SERVER_NAME:=${NODE_PREFIX}-server}
-: ${AMBARI_SERVER_IMAGE:="registry.cn-hangzhou.aliyuncs.com/tospur/amb-server:latest"}
-: ${AMBARI_AGENT_IMAGE:="registry.cn-hangzhou.aliyuncs.com/tospur/amb-agent:latest"}
 : ${HTTPD_IMAGE:="registry.cn-hangzhou.aliyuncs.com/tospur/httpd:latest"}
 : ${HTTPD_NAME:=httpd}
 : ${MYSQL_SERVER_NAME:=mysql}
@@ -19,12 +17,16 @@ source $(dirname $0)/env.sh
 
 : ${PULL_IMAGE:=false}
 
+: ${HDP_v2_4_PATH:=HDP/centos7/2.x/updates/2.4.0.0}
+: ${HDP_v2_4_UTILS_PATH:=HDP-UTILS-1.1.0.20/repos/centos7}
+: ${HDP_v2_6_PATH:=HDP-2.6/centos7}
+: ${HDP_v2_6_UTILS_PATH:=HDP-UTILS-1.1.0.21}
+
+
 amb-settings() {
   cat <<EOF
   NODE_PREFIX=$NODE_PREFIX
   AMBARI_SERVER_NAME=$AMBARI_SERVER_NAME
-  AMBARI_SERVER_IMAGE=$AMBARI_SERVER_IMAGE
-  AMBARI_AGENT_IMAGE=$AMBARI_AGENT_IMAGE
   HTTPD_IMAGE=$HTTPD_IMAGE
   DOCKER_OPTS=$DOCKER_OPTS
   AMBARI_SERVER_IP=$(get-ambari-server-ip)
@@ -39,7 +41,7 @@ EOF
 }
 
 amb-clean() {
-  unset NODE_PREFIX AMBARI_SERVER_NAME AMBARI_SERVER_IMAGE AMBARI_AGENT_IMAGE HTTPD_IMAGE CONSUL \
+  unset NODE_PREFIX AMBARI_SERVER_NAME HTTPD_IMAGE CONSUL \
         CONSUL_IMAGE DEBUG SLEEP_TIME EXPOSE_DNS \
         CALICO_NET HDP_PKG_DIR HTTPD_NAME
 }
@@ -104,11 +106,12 @@ amb-start-consul() {
 
 amb-start-ambari-server() {
   local local_ip=${1:?"Usage: amb-start-ambari-server <ip>"}
-
   local consul_ip=$(get-consul-ip)
+  local ambari_server_image="registry.cn-hangzhou.aliyuncs.com/tospur/amb-server:$AMBARI_VERSION"
+
   if [[ "$PULL_IMAGE" == "true" ]]; then
     debug "pulling image"
-    docker pull $AMBARI_SERVER_IMAGE
+    docker pull $ambari_server_image
   fi
   # remove log dir
   rm -rf $HADOOP_LOG/$AMBARI_SERVER_NAME
@@ -116,7 +119,7 @@ amb-start-ambari-server() {
   run-command docker run -d $DOCKER_OPTS --net ${CALICO_NET} --ip $local_ip \
               --privileged --name $AMBARI_SERVER_NAME \
               -v $HADOOP_LOG/$AMBARI_SERVER_NAME:/var/log \
-              -h $AMBARI_SERVER_NAME.service.consul $AMBARI_SERVER_IMAGE \
+              -h $AMBARI_SERVER_NAME.service.consul $ambari_server_image \
               systemd.setenv=NAMESERVER_ADDR=$consul_ip
 
   set-host-ip $AMBARI_SERVER_NAME $local_ip
@@ -157,11 +160,13 @@ amb-start-node() {
   local local_ip=${2:?"Usage: amb-start-node <node_num> <ip>"}
   local consul_ip=$(get-consul-ip)
   local node_name=${NODE_PREFIX}$number
+  local ambari_agent_image="registry.cn-hangzhou.aliyuncs.com/tospur/amb-agent:$AMBARI_VERSION"
+
   debug "amb-start-node running ................."
 
   if [[ "$PULL_IMAGE" == "true" ]]; then
     debug "pulling image"
-    docker pull $AMBARI_AGENT_IMAGE
+    docker pull $ambari_agent_image
   fi
 
   # Remove data && log dir before node start
@@ -169,7 +174,7 @@ amb-start-node() {
 
   run-command docker run -d $DOCKER_OPTS --privileged --net ${CALICO_NET} --ip $local_ip --name $node_name \
               -v $HADOOP_DATA/${node_name}:/hadoop -v $HADOOP_LOG/${node_name}:/var/log \
-              -h ${node_name}.service.consul $AMBARI_AGENT_IMAGE \
+              -h ${node_name}.service.consul $ambari_agent_image \
               systemd.setenv=NAMESERVER_ADDR=$consul_ip
 
   set-host-ip $node_name $local_ip
@@ -196,8 +201,10 @@ amb-start-HDP-httpd() {
 amb-replace-ambari-url() {
   local NODE_NAME=$1
   local httpd_ip=$(get-host-ip $HTTPD_NAME)
-  local baseurl=http://${httpd_ip}/AMBARI-2.4.0.1/centos7/2.4.0.1-1/
-  local gpgkey=http://${httpd_ip}/AMBARI-2.4.0.1/centos7/2.4.0.1-1/RPM-GPG-KEY/RPM-GPG-KEY-Jenkins
+
+  local ambari_path="AMBARI_${AMBARI_VERSION/./_}_PATH"
+  local baseurl=http://${httpd_ip}/${!ambari_path}/
+  local gpgkey=http://${httpd_ip}/${!ambari_path}/RPM-GPG-KEY/RPM-GPG-KEY-Jenkins
 
   docker exec $NODE_NAME sh -c "sed -i 's/baseurl=.*/baseurl=${baseurl//\//\\/}/g' /etc/yum.repos.d/ambari.repo"
   docker exec $NODE_NAME sh -c "sed -i 's/gpgkey=.*/gpgkey=${gpgkey//\//\\/}/g' /etc/yum.repos.d/ambari.repo"
@@ -217,8 +224,14 @@ amb-tool-get-agent-host-list() {
 
 amb-tool-get-HDP-url() {
   local httpd_ip=$(get-host-ip $HTTPD_NAME)
-  echo "http://${httpd_ip}/HDP/centos7/2.x/updates/2.4.0.0"
-  echo "http://${httpd_ip}/HDP-UTILS-1.1.0.20/repos/centos7"
+  debug "-------------HDP 2.4-------------"
+  echo "http://${httpd_ip}/$HDP_v2_4_PATH"
+  echo "http://${httpd_ip}/$HDP_v2_4_UTILS_PATH"
+  debug "---------------------------------"
+  debug "-------------HDP 2.6-------------"
+  echo "http://${httpd_ip}/$HDP_v2_6_PATH"
+  echo "http://${httpd_ip}/$HDP_v2_6_UTILS_PATH"
+  debug "---------------------------------"
 }
 
 amb-tool-get-all-setting() {
@@ -231,29 +244,66 @@ amb-tool-get-all-setting() {
   debug "=========================="
 }
 
-_check-input() {
-    read -p "Please input HDP, HDP-UTIL package path, default:$HDP_PKG_DIR, input:" INPUT
-    if [ "$INPUT" != "" ];then
-        HDP_PKG_DIR=$INPUT
+_check-ambari-input(){
+  read -p "Please choice an Ambari version support[v2.4 v2.5] default[$AMBARI_VERSION] input:" INPUT
+  if [[ "$INPUT" != "v2.4" || "$INPUT" != "v2.5" ]];then
+    echo "Not support version [$INPUT]"
+    exit
+  else
+    AMBARI_VERSION=$INPUT
+    sed -i "s/AMBARI_VERSION=\(.*\)/AMBARI_VERSION=${AMBARI_VERSION}/g" $ENV_FILE
+
+    local ambari_path="AMBARI_${AMBARI_VERSION/./_}_PATH"
+    echo "Please input Ambari packages relative path under($HDP_PKG_DIR)"
+    read -p  "default[${!ambari_path}] input:" AMBARI_PATH
+
+    if [ "$AMBARI_PATH" != "" ];then
+      eval "${ambari_path}=$AMBARI_PATH"
     fi
-    if [ ! -d "$HDP_PKG_DIR" ];then
-      echo "$HDP_PKG_DIR doesn't exist"
+
+    if [ ! -d "$HDP_PKG_DIR/${!ambari_path}" ];then
+      echo "$HDP_PKG_DIR/${!ambari_path} doesn't exist"
       exit
     fi
-    sed -i "s/HDP_PKG_DIR=\(.*\)/HDP_PKG_DIR=${HDP_PKG_DIR//\//\\/}/g" $ENV_FILE
-    echo $HDP_PKG_DIR
-    read -p "Please input Hadoop data storage dir, default:$HADOOP_DATA, input:" INPUT
-    if [ "$INPUT" != "" ];then
-        HADOOP_DATA=$INPUT
-    fi
-    sed -i "s/HADOOP_DATA=\(.*\)/HADOOP_DATA=${HADOOP_DATA//\//\\/}/g" $ENV_FILE
-    echo $HADOOP_DATA
-    read -p "Please input Hadoop log dir, default:$HADOOP_LOG, input:" INPUT
-    if [ "$INPUT" != "" ];then
-        HADOOP_LOG=$INPUT
-    fi
-    sed -i "s/HADOOP_LOG=\(.*\)/HADOOP_LOG=${HADOOP_LOG//\//\\/}/g" $ENV_FILE
-    echo $HADOOP_LOG
+
+    sed -i "s/$ambari_path=\(.*\)/$ambari_path=${!ambari_path//\//\\/}/g" $ENV_FILE
+    echo ${!ambari_path}
+  fi
+}
+
+_check-HDP-packages-dir-input(){
+  read -p "Please input Ambari, HDP, HDP-UTIL packages in httpd path, default:$HDP_PKG_DIR, input:" INPUT
+  if [ "$INPUT" != "" ];then
+      HDP_PKG_DIR=$INPUT
+  fi
+  if [ ! -d "$HDP_PKG_DIR" ];then
+    echo "$HDP_PKG_DIR doesn't exist"
+    exit
+  fi
+  sed -i "s/HDP_PKG_DIR=\(.*\)/HDP_PKG_DIR=${HDP_PKG_DIR//\//\\/}/g" $ENV_FILE
+  echo $HDP_PKG_DIR
+}
+
+_check-HADOOP-dir-input(){
+  read -p "Please input Hadoop data storage dir, default:$HADOOP_DATA, input:" INPUT
+  if [ "$INPUT" != "" ];then
+      HADOOP_DATA=$INPUT
+  fi
+  sed -i "s/HADOOP_DATA=\(.*\)/HADOOP_DATA=${HADOOP_DATA//\//\\/}/g" $ENV_FILE
+  echo $HADOOP_DATA
+
+  read -p "Please input Hadoop log dir, default:$HADOOP_LOG, input:" INPUT
+  if [ "$INPUT" != "" ];then
+      HADOOP_LOG=$INPUT
+  fi
+  sed -i "s/HADOOP_LOG=\(.*\)/HADOOP_LOG=${HADOOP_LOG//\//\\/}/g" $ENV_FILE
+  echo $HADOOP_LOG
+}
+
+_check-input() {
+  _check-HDP-packages-dir-input
+  _check-ambari-input
+  _check-HADOOP-dir-input
 }
 
 _amb-config-mysql-driver(){
