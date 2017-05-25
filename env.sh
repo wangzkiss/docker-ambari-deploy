@@ -12,7 +12,7 @@
 : ${ENV_FILE:=$(dirname $0)/env.sh}
 
 # 本地 HDP，HDP-UTIL 包所在的路径
-HDP_PKG_DIR=/home/hdp_httpd_home/
+HDP_PKG_DIR=/home/hdp_httpd_home
 # docker volume mount to docker
 HADOOP_DATA=/home/hadoop_data
 HADOOP_LOG=/home/hadoop_log

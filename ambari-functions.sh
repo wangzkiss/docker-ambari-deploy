@@ -246,12 +246,15 @@ amb-tool-get-all-setting() {
 
 _check-ambari-input(){
   read -p "Please choice an Ambari version support[v2.4 v2.5] default[$AMBARI_VERSION] input:" INPUT
-  if [[ "$INPUT" != "v2.4" || "$INPUT" != "v2.5" ]];then
+  if [[ "$INPUT" != "" && "$INPUT" != "v2.4" && "$INPUT" != "v2.5" ]];then
     echo "Not support version [$INPUT]"
     exit
   else
-    AMBARI_VERSION=$INPUT
-    sed -i "s/AMBARI_VERSION=\(.*\)/AMBARI_VERSION=${AMBARI_VERSION}/g" $ENV_FILE
+    if [[ "$INPUT" != "" ]]
+      AMBARI_VERSION=$INPUT
+      sed -i "s/AMBARI_VERSION=\(.*\)/AMBARI_VERSION=${AMBARI_VERSION}/g" $ENV_FILE
+    fi
+    echo "AMBARI_VERSION=$AMBARI_VERSION"
 
     local ambari_path="AMBARI_${AMBARI_VERSION/./_}_PATH"
     echo "Please input Ambari packages relative path under($HDP_PKG_DIR)"
@@ -267,7 +270,7 @@ _check-ambari-input(){
     fi
 
     sed -i "s/$ambari_path=\(.*\)/$ambari_path=${!ambari_path//\//\\/}/g" $ENV_FILE
-    echo ${!ambari_path}
+    echo "$ambari_path=${!ambari_path}"
   fi
 }
 
@@ -281,23 +284,23 @@ _check-HDP-packages-dir-input(){
     exit
   fi
   sed -i "s/HDP_PKG_DIR=\(.*\)/HDP_PKG_DIR=${HDP_PKG_DIR//\//\\/}/g" $ENV_FILE
-  echo $HDP_PKG_DIR
+  echo "HDP_PKG_DIR=$HDP_PKG_DIR"
 }
 
 _check-HADOOP-dir-input(){
   read -p "Please input Hadoop data storage dir, default:$HADOOP_DATA, input:" INPUT
   if [ "$INPUT" != "" ];then
       HADOOP_DATA=$INPUT
+      sed -i "s/HADOOP_DATA=\(.*\)/HADOOP_DATA=${HADOOP_DATA//\//\\/}/g" $ENV_FILE
   fi
-  sed -i "s/HADOOP_DATA=\(.*\)/HADOOP_DATA=${HADOOP_DATA//\//\\/}/g" $ENV_FILE
-  echo $HADOOP_DATA
+  echo "HADOOP_DATA=$HADOOP_DATA"
 
   read -p "Please input Hadoop log dir, default:$HADOOP_LOG, input:" INPUT
   if [ "$INPUT" != "" ];then
       HADOOP_LOG=$INPUT
+      sed -i "s/HADOOP_LOG=\(.*\)/HADOOP_LOG=${HADOOP_LOG//\//\\/}/g" $ENV_FILE
   fi
-  sed -i "s/HADOOP_LOG=\(.*\)/HADOOP_LOG=${HADOOP_LOG//\//\\/}/g" $ENV_FILE
-  echo $HADOOP_LOG
+  echo "HADOOP_LOG=$HADOOP_LOG"
 }
 
 _check-input() {
