@@ -250,7 +250,7 @@ _check-ambari-input(){
     echo "Not support version [$INPUT]"
     exit
   else
-    if [[ "$INPUT" != "" ]]
+    if [[ "$INPUT" != "" ]];then
       AMBARI_VERSION=$INPUT
       sed -i "s/AMBARI_VERSION=\(.*\)/AMBARI_VERSION=${AMBARI_VERSION}/g" $ENV_FILE
     fi
