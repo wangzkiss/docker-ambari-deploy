@@ -526,7 +526,7 @@ amb-get-unusage-ip(){
   # get current etcd store usaging ips
   local etcd_host=$(_get-etcd-ip-list etcd | sed "s/etcd/http/g")
 
-  if _etcdctl ls /ips; then
+  if [[ $(_etcdctl ls /ips) ]]; then
     etcd_usage_ips=$(curl -s -L $etcd_host/v2/keys/ips \
       | jq ".node.nodes[].value" \
       | tr -d '"' \
