@@ -46,6 +46,18 @@ amb-clean() {
         CALICO_NET HDP_PKG_DIR HTTPD_NAME
 }
 
+_amb_run_shell() {
+  local commnd=${1:?"Usage: _amb_run_shell <commnd>"}
+  local blueprint=${2:?"Usage: _amb_run_shell <commnd> <blueprint> 
+                    blueprint: (single-node-hdfs-yarn / multi-node-hdfs-yarn / hdp-singlenode-default / hdp-multinode-default)"}
+
+  local ambari_server_image="registry.cn-hangzhou.aliyuncs.com/tospur/amb-server:$AMBARI_VERSION"
+  local agent_nums=$(_etcdctl get /agent-nums)
+  
+  run-command docker run --net $CALICO_NET -it --rm -e EXPECTED_HOST_COUNT=$agent_nums -e BLUEPRINT=$blueprint --link ${AMBARI_SERVER_NAME}:ambariserver \
+     --entrypoint /bin/sh $ambari_server_image -c $commnd
+}
+
 get-ambari-server-ip() {
   get-host-ip ${AMBARI_SERVER_NAME}
 }
@@ -378,6 +390,10 @@ amb-start-cluster() {
   amb-tool-get-all-setting
 }
 
+amb-deploy-cluster() {
+  _amb_run_shell /tmp/install-cluster.sh multi-node-hdfs-yarn
+}
+
 amb-clean-agent() {
   docker stop $(docker ps -a -q -f "name=${NODE_PREFIX}*")
   docker rm -v $(docker ps -a -q -f "name=${NODE_PREFIX}*")
@@ -499,6 +515,7 @@ amb-install-hbase() {
 
 amb-get-unusage-ip(){
   local ip_nums=${1:?"Usage: amb-get-unusage-ip <ip_nums>"}
+  local etcd_usage_ips=""
   # Get docker net usaging ip
   local network_usage_ips=$(docker network inspect --format "{{range .Containers}}{{.IPv4Address}} {{end}}" $CALICO_NET \
     | tr " " \\n \
@@ -507,10 +524,13 @@ amb-get-unusage-ip(){
 
   # get current etcd store usaging ips
   local etcd_host=$(_get-etcd-ip-list etcd | sed "s/etcd/http/g")
-  local etcd_usage_ips=$(curl -s -L $etcd_host/v2/keys/ips \
-    | jq ".node.nodes[].value" \
-    | tr -d '"' \
-    | awk '{printf " -e %s", $1}')
+
+  if _etcdctl ls /ips; then
+    etcd_usage_ips=$(curl -s -L $etcd_host/v2/keys/ips \
+      | jq ".node.nodes[].value" \
+      | tr -d '"' \
+      | awk '{printf " -e %s", $1}')
+  fi
 
   local ip_range=$(ipcalc -b $CALICO_CIDR | awk -F = '{print $2}' | sed "s/255/{1..254}/g")
 
