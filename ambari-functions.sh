@@ -53,8 +53,9 @@ _amb_run_shell() {
 
   local ambari_server_image="registry.cn-hangzhou.aliyuncs.com/tospur/amb-server:$AMBARI_VERSION"
   local agent_nums=$(_etcdctl get /agent-nums)
+  local ambari_host=$(get-ambari-server-ip)
   
-  run-command docker run --net $CALICO_NET -it --rm -e EXPECTED_HOST_COUNT=$agent_nums -e BLUEPRINT=$blueprint --link ${AMBARI_SERVER_NAME}:ambariserver \
+  run-command docker run --net $CALICO_NET -it --rm -e EXPECTED_HOST_COUNT=$agent_nums -e BLUEPRINT=$blueprint -e AMBARI_HOST=$ambari_host \
      --entrypoint /bin/sh $ambari_server_image -c $commnd
 }
 
