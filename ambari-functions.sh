@@ -515,7 +515,7 @@ amb-install-hbase() {
 
 amb-get-unusage-ip(){
   local ip_nums=${1:?"Usage: amb-get-unusage-ip <ip_nums>"}
-  local etcd_usage_ips=""
+  local etcd_usage_ips="0.0.0.0"
   # Get docker net usaging ip
   local network_usage_ips=$(docker network inspect --format "{{range .Containers}}{{.IPv4Address}} {{end}}" $CALICO_NET \
     | tr " " \\n \
