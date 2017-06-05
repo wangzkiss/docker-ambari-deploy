@@ -40,15 +40,15 @@ _get-host-ip(){
 }
 
 _get-first-host() {
-    echo ${HOST_LIST//,/ } | awk '{print $1}'
+    cut -d',' -f 1 <<< $HOST_LIST
 }
 
 _get-second-host() {
-    echo ${HOST_LIST//,/ } | awk '{print $2}'
+    cut -d',' -f 2 <<< $HOST_LIST
 }
 
 _get-third-host() {
-    echo ${HOST_LIST//,/ } | awk '{print $3}'
+    cut -d',' -f 3 <<< $HOST_LIST
 }
 
 _get-first-host-ip() {
