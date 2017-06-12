@@ -17,7 +17,8 @@ spec:
     spec:
       containers:
       - name: amb-agent
-        image: hortonworks/ambari-agent:2.2.1-v20
+        # image: hortonworks/ambari-agent:2.2.1-v20
+        image: registry.cn-hangzhou.aliyuncs.com/tospur/amb-agent:v2.4
         securityContext:
           privileged: true
         # resources:

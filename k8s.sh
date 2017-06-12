@@ -146,9 +146,9 @@ open-port-on-master(){
 }
 
 start-nodes(){
-    local nodes_host=$(get-nodes-host)
-    pdcp -w $nodes_host $0 $SH_FILE_PATH
-    pdsh -w $nodes_host bash $SH_FILE_PATH/$0 _local-start-nodes
+    # local nodes_host=$(get-nodes-host)
+    pdcp -w $HOST_LIST $0 $SH_FILE_PATH
+    pdsh -w $HOST_LIST bash $SH_FILE_PATH/$0 _local-start-nodes
 }
 
 _local-start-master(){
