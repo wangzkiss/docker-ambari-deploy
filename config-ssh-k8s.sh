@@ -35,13 +35,13 @@ _get_amb_agents_ip(){
 _amb_copy_ssh_to_agent(){
     local host_name=${1:?"Usage: _amb_copy_ssh_to_agent <host_name> <server-name> "}
     local ambari_server_name=${2:?"Usage: _amb_copy_ssh_to_agent <host_name> <server-name>"}
-    run_command _kubectl exec $ambari_server_name -c ambari-server -- ssh-keyscan $host_name >> ~/.ssh/known_hosts
-    run_command _kubectl exec $ambari_server_name -c ambari-server -- sshpass -p Zasd_1234 ssh-copy-id root@${host_name}
+    run_command _kubectl exec $ambari_server_name -c ambari-server -- sh -c "ssh-keyscan $host_name >> ~/.ssh/known_hosts"
+    run_command _kubectl exec $ambari_server_name -c ambari-server -- sh -c "sshpass -p Zasd_1234 ssh-copy-id root@${host_name}"
 }
 
 config_master(){
     local ambari_server_name=$(_get_amb_server_name)
-    run_command _kubectl exec $ambari_server_name -c ambari-server -- echo -e  'y\n'|ssh-keygen -q -t rsa -N '' -f ~/.ssh/id_rsa
+    run_command _kubectl exec $ambari_server_name -c ambari-server -- sh -c "echo -e  'y\n'|ssh-keygen -q -t rsa -N '' -f ~/.ssh/id_rsa"
 
     for i in $(_get_amb_agents_ip); do
         run_command _amb_copy_ssh_to_agent $i $ambari_server_name
@@ -58,12 +58,12 @@ config_agents(){
 _amb_start_agent_service() {
   local agent_name=${1:?"Usage: _amb_start_agent_service <agent_name>"}
   # set password to agent, for server ssh
-  run_command _kubectl exec $agent_name -c amb-agent -- echo Zasd_1234 | passwd root --stdin
-  run_command _kubectl exec $agent_name -c amb-agent -- systemctl restart ntpd
+  run_command _kubectl exec $agent_name -c amb-agent -- sh -c "echo Zasd_1234 | passwd root --stdin"
+  run_command _kubectl exec $agent_name -c amb-agent -- sh -c "systemctl restart ntpd"
 }
 
 amb_tool_get_server_sshkey() {
-  run_command _kubectl exec $(_get_amb_server_name) -c ambari-server -- cat ~/.ssh/id_rsa
+  run_command _kubectl exec $(_get_amb_server_name) -c ambari-server -- sh -c "cat ~/.ssh/id_rsa"
 }
 
 amb_tool_get_agent_host_list() {
