@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+#!/bin/bash
 
 # import common variable
 source $(dirname $0)/env.sh
