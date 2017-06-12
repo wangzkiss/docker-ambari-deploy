@@ -20,13 +20,13 @@ spec:
         image: hortonworks/ambari-agent:2.2.1-v20
         securityContext:
           privileged: true
-        resources:
-          requests:
-            memory: "16G"
-            cpu: "2000m"
-          limits:
-            memory: "20G"
-            cpu: "3000m"
+        # resources:
+        #   requests:
+        #     memory: "16G"
+        #     cpu: "2000m"
+        #   limits:
+        #     memory: "20G"
+        #     cpu: "3000m"
         volumeMounts:
             - name: ambari-conf
               mountPath: /etc/systemd/system/ambari-agent.service.d

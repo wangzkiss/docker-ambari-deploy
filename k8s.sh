@@ -75,7 +75,7 @@ KUBE_SERVICE_ADDRESSES=\"--service-cluster-ip-range=10.254.0.0/16\"
 KUBE_ADMISSION_CONTROL=\"--admission-control=NamespaceLifecycle,NamespaceExists,LimitRanger,SecurityContextDeny,ResourceQuota\"
 
 # Add your own!
-KUBE_API_ARGS=\"\"" > $config_path
+KUBE_API_ARGS=\"--allow-privileged\"" > $config_path
     pdcp -w $master_host $config_path $config_path
 }
 
@@ -176,7 +176,7 @@ conf-kubectl(){
 
 add-kube-dns(){
     # TODO use sed modify
-    echo "KUBELET_ARGS=\"--cluster_dns=10.254.0.10 --cluster_domain=cluster.local\"" >> /etc/kubernetes/kubelet
+    echo "KUBELET_ARGS=\"--cluster_dns=10.254.0.10 --cluster_domain=cluster.local --allow-privileged\"" >> /etc/kubernetes/kubelet
     pdcp -w $HOST_LIST /etc/kubernetes/kubelet /etc/kubernetes/kubelet
     # --kube-master-url=http://172.18.84.221:8080
 }
