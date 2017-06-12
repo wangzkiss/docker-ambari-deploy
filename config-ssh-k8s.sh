@@ -17,7 +17,7 @@ run_command() {
 }
 
 _kubectl(){
-    kubectl --namespace=ambari $@
+    kubectl --namespace=ambari "$@"
 }
 
 _get_amb_server_name(){
@@ -32,20 +32,26 @@ _get_amb_agents_ip(){
     _kubectl get pod -o wide | grep amb-agent | awk '{print $6}'
 }
 
+_run_amb_server_sh(){
+    local ambari_server_name=$(_get_amb_server_name)
+    run_command _kubectl exec $ambari_server_name -c ambari-server -- "$@"
+}
+
 _amb_copy_ssh_to_agent(){
     local host_name=${1:?"Usage: _amb_copy_ssh_to_agent <host_name> <server-name> "}
-    local ambari_server_name=${2:?"Usage: _amb_copy_ssh_to_agent <host_name> <server-name>"}
-    run_command _kubectl exec $ambari_server_name -c ambari-server -- sh -c "ssh-keyscan $host_name >> ~/.ssh/known_hosts"
-    run_command _kubectl exec $ambari_server_name -c ambari-server -- sh -c "sshpass -p Zasd_1234 ssh-copy-id root@${host_name}"
+    _run_amb_server_sh sh -c "ssh-keyscan $host_name >> ~/.ssh/known_hosts"
+    _run_amb_server_sh sh -c "sshpass -p Zasd_1234 ssh-copy-id root@${host_name}"
 }
 
 config_master(){
-    local ambari_server_name=$(_get_amb_server_name)
-    run_command _kubectl exec $ambari_server_name -c ambari-server -- sh -c "echo -e  'y\n'|ssh-keygen -q -t rsa -N '' -f ~/.ssh/id_rsa"
+    _run_amb_server_sh sh -c "echo -e  'y\n'|ssh-keygen -q -t rsa -N '' -f ~/.ssh/id_rsa"
 
     for i in $(_get_amb_agents_ip); do
-        run_command _amb_copy_ssh_to_agent $i $ambari_server_name
+        run_command _amb_copy_ssh_to_agent $i
     done
+
+    _run_amb_server_sh sh -c "sort -u ~/.ssh/known_hosts > ~/.ssh/tmp_hosts"
+    _run_amb_server_sh sh -c "mv ~/.ssh/tmp_hosts ~/.ssh/known_hosts"
 }
 
 config_agents(){
