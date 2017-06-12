@@ -32,10 +32,6 @@ _get_amb_agents_ip(){
     _kubectl get pod -o wide | grep amb-agent | awk '{print $6}'
 }
 
-_amb_server_ssh_keygen(){
-    
-}
-
 _amb_copy_ssh_to_agent(){
     local host_name=${1:?"Usage: _amb_copy_ssh_to_agent <host_name> <server-name> "}
     local ambari_server_name=${2:?"Usage: _amb_copy_ssh_to_agent <host_name> <server-name>"}
