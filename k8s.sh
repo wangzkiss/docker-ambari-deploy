@@ -172,6 +172,12 @@ conf-kubectl(){
     pdsh -w $master_host "kubectl config set-cluster default-cluster --server=http://172.18.84.221:8080"
     pdsh -w $master_host "kubectl config set-context default-context --cluster=default-cluster --user=default-admin"
     pdsh -w $master_host "kubectl config use-context default-context"
+
+    # config 
+    pdsh -w $master_host "kubectl create namespace ambari"
+    pdsh -w $master_host "kubectl label node $master_host role=master"
+    
+    
 }
 
 add-kube-dns(){

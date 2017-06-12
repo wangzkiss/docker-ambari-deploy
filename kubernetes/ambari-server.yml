@@ -33,9 +33,11 @@ spec:
             value: ambari-server.ambari.svc.cluster.local
           - name: AMBARI_HOST
             value: ambari-server.ambari.svc.cluster.local
-
+      
         ports:
         - containerPort: 8080
+      nodeSelector:
+        role: master
       volumes:
           - name: ambari-conf
             configMap: 
