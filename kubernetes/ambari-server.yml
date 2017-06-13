@@ -36,8 +36,8 @@ spec:
       
         ports:
         - containerPort: 8080
-      nodeSelector:
-        role: master
+      # nodeSelector:
+      #   role: master
       volumes:
           - name: ambari-conf
             configMap: 

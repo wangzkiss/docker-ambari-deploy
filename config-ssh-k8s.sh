@@ -114,10 +114,15 @@ amb_tool_get_all_setting() {
   debug "=========================="
 }
 
+amb_config_mysql_driver(){
+  _run_amb_server_sh sh -c "ambari-server setup --jdbc-db=mysql --jdbc-driver=/usr/share/java/mysql-connector-java.jar"
+}
+
 main(){
     config_agents
     config_master
     amb_replace_ambari_url
+    amb_config_mysql_driver
     amb_tool_get_all_setting
 }
 
