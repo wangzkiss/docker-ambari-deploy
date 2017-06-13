@@ -73,7 +73,9 @@ amb_tool_get_server_sshkey() {
 }
 
 amb_tool_get_agent_host_list() {
-    _get_amb_agents_ip
+    for i in $(_get_amb_agents_ip); do
+        echo "${i//./-}.ambari.pod.cluster.local"
+    done
 }
 
 amb_tool_get_all_setting() {
