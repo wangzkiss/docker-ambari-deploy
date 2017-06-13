@@ -82,6 +82,16 @@ amb_tool_get_agent_host_list() {
     done
 }
 
+amb_replace_ambari_url() {
+  local ambari_path="AMBARI-2.4.0.1/centos7/2.4.0.1-1"
+  local baseurl=http://amb-httpd/${ambari_path}/
+  local gpgkey=http://amb-httpd/${ambari_path}/RPM-GPG-KEY/RPM-GPG-KEY-Jenkins
+
+  _run_amb_server_sh sh -c "sed -i 's/baseurl=.*/baseurl=${baseurl//\//\\/}/g' /etc/yum.repos.d/ambari.repo"
+  _run_amb_server_sh sh -c "sed -i 's/gpgkey=.*/gpgkey=${gpgkey//\//\\/}/g' /etc/yum.repos.d/ambari.repo"
+  _run_amb_server_sh sh -c "cat /etc/yum.repos.d/ambari.repo"
+}
+
 amb_tool_get_HDP_url() {
   local httpd_ip=$(get-host-ip $HTTPD_NAME)
   debug "-------------HDP 2.4-------------"
@@ -107,6 +117,7 @@ amb_tool_get_all_setting() {
 main(){
     config_agents
     config_master
+    amb_replace_ambari_url
     amb_tool_get_all_setting
 }
 
