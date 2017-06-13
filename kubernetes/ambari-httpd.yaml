@@ -1,0 +1,33 @@
+---
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: amb-httpd
+  namespace: ambari
+  labels:
+    name: amb-httpd
+spec:
+  replicas: 1
+  selector:
+    name: amb-httpd
+  template:
+    metadata:
+      labels:
+        name: amb-httpd
+    spec:
+      containers:
+      - name: amb-httpd
+        # image: hortonworks/ambari-agent:2.2.1-v20
+        image: registry.cn-hangzhou.aliyuncs.com/tospur/httpd:latest
+        securityContext:
+          privileged: true
+        volumeMounts:
+            - name: httpd-data
+              mountPath: /usr/local/apache2/htdocs/
+      nodeSelector:
+        role: master
+      volumes:
+          - name: httpd-data
+            hostPath:
+              path: /home/hdp_httpd_home
+
