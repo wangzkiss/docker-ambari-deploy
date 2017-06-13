@@ -1,6 +1,10 @@
 #!/bin/bash
 : ${DEBUG:=1}
 : ${DRY_RUN:=false}
+: ${HDP_v2_4_PATH:=HDP/centos7/2.x/updates/2.4.0.0}
+: ${HDP_v2_4_UTILS_PATH:=HDP-UTILS-1.1.0.20/repos/centos7}
+: ${HDP_v2_6_PATH:=HDP-2.6/centos7}
+: ${HDP_v2_6_UTILS_PATH:=HDP-UTILS-1.1.0.21}
 
 debug() {
   [ ${DEBUG} -gt 0 ] && echo "[DEBUG] $@" 1>&2
@@ -78,9 +82,21 @@ amb_tool_get_agent_host_list() {
     done
 }
 
+amb_tool_get_HDP_url() {
+  local httpd_ip=$(get-host-ip $HTTPD_NAME)
+  debug "-------------HDP 2.4-------------"
+  echo "http://amb-httpd/$HDP_v2_4_PATH"
+  echo "http://amb-httpd/$HDP_v2_4_UTILS_PATH"
+  debug "---------------------------------"
+  debug "-------------HDP 2.6-------------"
+  echo "http://amb-httpd/$HDP_v2_6_PATH"
+  echo "http://amb-httpd/$HDP_v2_6_UTILS_PATH"
+  debug "---------------------------------"
+}
+
 amb_tool_get_all_setting() {
   debug "=============HDP url============="
-  # amb_tool_get_HDP_url
+  amb_tool_get_HDP_url
   debug "=============agent host list============="
   amb_tool_get_agent_host_list
   debug "=============server sshkey============="
