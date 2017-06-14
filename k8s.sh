@@ -75,7 +75,7 @@ KUBE_SERVICE_ADDRESSES=\"--service-cluster-ip-range=10.254.0.0/16\"
 KUBE_ADMISSION_CONTROL=\"--admission-control=NamespaceLifecycle,NamespaceExists,LimitRanger,SecurityContextDeny,ResourceQuota\"
 
 # Add your own!
-KUBE_API_ARGS=\"--allow-privileged\"" > $config_path
+KUBE_API_ARGS=\"--allow-privileged --client-ca-file=/srv/kubernetes/ca.crt --tls-cert-file=/srv/kubernetes/server.crt --tls-private-key-file=/srv/kubernetes/server.key\"" > $config_path
     pdcp -w $master_host $config_path $config_path
 }
 
@@ -135,7 +135,7 @@ KUBELET_ARGS=\"\"" > $config_path
 start-master(){
     local master_host=$(get-master-host)
     pdcp -w $master_host $0 $SH_FILE_PATH
-    pdsh -w $master_host bash $SH_FILE_PATH/$0 _local-start-master
+    pdsh -w $master_host bash $SH_FILE_PATH/$0 _local_start_master
 }
 
 open-port-on-master(){
@@ -148,10 +148,19 @@ open-port-on-master(){
 start-nodes(){
     # local nodes_host=$(get-nodes-host)
     pdcp -w $HOST_LIST $0 $SH_FILE_PATH
-    pdsh -w $HOST_LIST bash $SH_FILE_PATH/$0 _local-start-nodes
+    pdsh -w $HOST_LIST bash $SH_FILE_PATH/$0 _local_start_nodes
 }
 
-_local-start-master(){
+stop-all(){
+    local master_host=$(get-master-host)
+    pdcp -w $HOST_LIST $0 $SH_FILE_PATH
+
+    pdsh -w $HOST_LIST bash $SH_FILE_PATH/$0 _local_stop_nodes
+
+    pdsh -w $master_host bash $SH_FILE_PATH/$0 _local_stop_master
+}
+
+_local_start_master(){
     for SERVICES in etcd kube-apiserver kube-controller-manager kube-scheduler flanneld; do
         systemctl restart $SERVICES
         systemctl enable $SERVICES
@@ -159,7 +168,21 @@ _local-start-master(){
     done
 }
 
-_local-start-nodes(){
+_local_stop_master(){
+    for SERVICES in etcd kube-apiserver kube-controller-manager kube-scheduler flanneld; do
+        systemctl stop $SERVICES
+        systemctl status $SERVICES
+    done
+}
+
+_local_stop_nodes(){
+    for SERVICES in kube-proxy kubelet flanneld docker; do
+        systemctl stop $SERVICES
+        systemctl status $SERVICES
+    done
+}
+
+_local_start_nodes(){
     for SERVICES in kube-proxy kubelet flanneld docker; do
         systemctl restart $SERVICES
         systemctl enable $SERVICES
@@ -176,8 +199,6 @@ conf-kubectl(){
     # config 
     pdsh -w $master_host "kubectl create namespace ambari"
     pdsh -w $master_host "kubectl label node $master_host role=master"
-    
-    
 }
 
 add-kube-dns(){
