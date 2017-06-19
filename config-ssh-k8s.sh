@@ -104,6 +104,19 @@ amb_tool_get_HDP_url() {
   debug "---------------------------------"
 }
 
+
+amb_test_amb_server_start() {
+  local ambari_server_ip=$(get_ambari_server_ip)
+
+  while [ 1 -eq 1 ]; do
+    if curl ${ambari_server_ip}:8080; then
+      break
+    else
+      sleep $SLEEP_TIME
+    fi
+  done
+}
+
 amb_tool_get_all_setting() {
   debug "=============HDP url============="
   amb_tool_get_HDP_url

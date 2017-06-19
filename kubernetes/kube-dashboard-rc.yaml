@@ -24,8 +24,8 @@ spec:
       containers:
       - name: kubernetes-dashboard
         image: gcr.io/google_containers/kubernetes-dashboard-amd64:v1.6.0
-        args:
-        - --apiserver-host=http://172.18.84.221:8080
+        # args:
+        # - --apiserver-host=http://x.x.x.x:8080
         resources:
           limits:
             cpu: 100m
