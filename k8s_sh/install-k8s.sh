@@ -1,7 +1,8 @@
 #!/bin/bash
+source $(dirname $0)/k8s-env.sh
 
 : ${SH_FILE_PATH:=/tmp}
-: ${HOST_LIST:=dc01,dc02,dc03,dc04,dc05}
+: ${MASTER_IP:=""}
 
 get-master-host(){
     cut -d',' -f 1 <<< $HOST_LIST
@@ -61,7 +62,7 @@ KUBE_LOG_LEVEL="--v=0"
 KUBE_ALLOW_PRIV="--allow-privileged=true"
 
 # How the controller-manager, scheduler, and proxy find the apiserver
-KUBE_MASTER="--master=https://172.18.84.221:6443"
+KUBE_MASTER="--master=https://${MASTER_IP}:6443"
 EOF
     pdcp -w $HOST_LIST $config_path $config_path
 }
@@ -80,9 +81,9 @@ conf-etcd-on-master(){
 # [member]
 ETCD_NAME=default
 ETCD_DATA_DIR="/var/lib/etcd/default.etcd"
-ETCD_LISTEN_CLIENT_URLS="http://172.18.84.221:2379"
+ETCD_LISTEN_CLIENT_URLS="http://${MASTER_IP}:2379"
 #[cluster]
-ETCD_ADVERTISE_CLIENT_URLS="http://172.18.84.221:2379"
+ETCD_ADVERTISE_CLIENT_URLS="http://${MASTER_IP}:2379"
 EOF
     pdcp -w $master_host $config_path $config_path
 }
@@ -107,7 +108,7 @@ KUBE_API_PORT="--insecure-port=8080 --insecure-bind-address=127.0.0.1"
 KUBELET_PORT="--kubelet-port=10250"
 
 # Comma separated list of nodes in the etcd cluster
-KUBE_ETCD_SERVERS="--etcd-servers=http://172.18.84.221:2379"
+KUBE_ETCD_SERVERS="--etcd-servers=http://${MASTER_IP}:2379"
 
 # Address range to use for services
 KUBE_SERVICE_ADDRESSES="--service-cluster-ip-range=10.254.0.0/16"
@@ -163,7 +164,7 @@ conf-flanneld() {
 # Flanneld configuration options  
 
 # etcd url location.  Point this to the server where etcd runs
-FLANNEL_ETCD_ENDPOINTS="http://172.18.84.221:2379"
+FLANNEL_ETCD_ENDPOINTS="http://${MASTER_IP}:2379"
 
 # etcd config key.  This is the configuration key that flannel queries
 # For address range assignment
@@ -192,8 +193,8 @@ KUBELET_PORT="--port=10250"
 KUBELET_HOSTNAME=""
 
 # location of the api-server
-#KUBELET_API_SERVER="--api-servers=http://172.18.84.221:8080"
-KUBELET_API_SERVER="--api-servers=https://172.18.84.221:6443 --kubeconfig=/root/.kube/config"
+#KUBELET_API_SERVER="--api-servers=http://${MASTER_IP}:8080"
+KUBELET_API_SERVER="--api-servers=https://${MASTER_IP}:6443 --kubeconfig=/root/.kube/config"
 
 # pod infrastructure container
 #KUBELET_POD_INFRA_CONTAINER="--pod-infra-container-image=registry.access.redhat.com/rhel7/pod-infrastructure:latest"
@@ -234,7 +235,7 @@ open-kubelet-ports(){
 conf-flanneld-on-etcd(){
     local master_host=$(get-master-host)
     pdsh -w $master_host systemctl start etcd
-    pdsh -w $master_host "etcdctl --endpoint 172.18.84.221:2379 set /kube-centos/network/config \"{ \\\"Network\\\": \\\"172.30.0.0/16\\\", \\\"SubnetLen\\\": 24, \\\"Backend\\\": { \\\"Type\\\": \\\"vxlan\\\" } }\""
+    pdsh -w $master_host "etcdctl --endpoint ${MASTER_IP}:2379 set /kube-centos/network/config \"{ \\\"Network\\\": \\\"172.30.0.0/16\\\", \\\"SubnetLen\\\": 24, \\\"Backend\\\": { \\\"Type\\\": \\\"vxlan\\\" } }\""
 }
 
 start-master(){
@@ -291,10 +292,10 @@ _local_start_nodes(){
 
 conf-kubectl(){
     local master_host=$(get-master-host)
-    # pdsh -w $master_host "kubectl config set-cluster default-cluster --server=http://172.18.84.221:8080"
+    # pdsh -w $master_host "kubectl config set-cluster default-cluster --server=http://${MASTER_IP}:8080"
     # pdsh -w $master_host "kubectl config set-context default-context --cluster=default-cluster --user=default-admin"
     # pdsh -w $master_host "kubectl config use-context default-context"
-    kubectl config set-cluster default-cluster --server=https://172.18.84.221:6443 --certificate-authority=/srv/kubernetes/ca.crt
+    kubectl config set-cluster default-cluster --server=https://${MASTER_IP}:6443 --certificate-authority=/srv/kubernetes/ca.crt
     kubectl config set-credentials default-admin --certificate-authority=/srv/kubernetes/ca.crt --client-key=/srv/kubernetes/kubecfg.key --client-certificate=/srv/kubernetes/kubecfg.crt
     kubectl config set-context default-context --cluster=default-cluster --user=default-admin
     kubectl config use-context default-context
@@ -303,8 +304,14 @@ conf-kubectl(){
     pdsh -w $master_host "kubectl label node $master_host role=master"
 }
 
+create-certificate(){
+    bash $(dirname $0)/make-ca-cert.sh main
+
+}
 
 main(){
+    MASTER_IP=${1:?"main <master_ip>"}
+
     add-google-to-host
 
     install-k8s

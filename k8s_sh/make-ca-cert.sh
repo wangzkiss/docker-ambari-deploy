@@ -1,4 +1,5 @@
 #!/bin/bash
+source $(dirname $0)/k8s-env.sh
 
 cert_dir=${CERT_DIR:-/srv/kubernetes}
 
@@ -8,7 +9,7 @@ create_ca(){
 }
 
 create_server(){
-  local master_host=${1:?"create_server <MASTER_HOST>"}
+  local master_ip=${1:?"create_server <master_ip>"}
 
   cat << EOF > $cert_dir/openssl.cnf
 [req]
@@ -25,7 +26,7 @@ DNS.2 = kubernetes.default
 DNS.3 = kubernetes.default.svc
 DNS.4 = kubernetes.default.svc.cluster.local
 IP.1 = 10.254.0.1
-IP.2 = ${master_host}
+IP.2 = ${master_ip}
 EOF
 
   openssl genrsa -out $cert_dir/server.key 2048
@@ -53,12 +54,14 @@ EOF
 }
 
 main(){
-  local master_host=${1:?"main <MASTER_HOST>"}
+  local master_ip=${1:?"main <master_ip>"}
   mkdir -p "$cert_dir"
 
   create_ca
-  create_server $master_host
+  create_server $master_ip
   create_client
+
+  pdcp -w HOST_LIST $cert_dir/* $cert_dir/
 }
 
 
