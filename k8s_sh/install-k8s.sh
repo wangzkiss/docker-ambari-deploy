@@ -13,7 +13,7 @@ get-nodes-host(){
 }
 
 add-google-to-host(){
-    if [ ! cat /etc/hosts | grep google ] ;then
+    if ! cat /etc/hosts | grep google;then
         cat << EOF >> /etc/hosts
 61.91.161.217 google.com
 61.91.161.217 gcr.io   
@@ -306,7 +306,11 @@ conf-kubectl(){
 
 create-certificate(){
     bash $(dirname $0)/make-ca-cert.sh main
+}
 
+install-tools(){
+    yum install -y epel-release
+    yum install -y pdsh docker-io
 }
 
 main(){

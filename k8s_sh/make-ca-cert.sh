@@ -61,7 +61,7 @@ main(){
   create_server $master_ip
   create_client
 
-  pdcp -w HOST_LIST $cert_dir/* $cert_dir/
+  pdcp -w $HOST_LIST $cert_dir/* $cert_dir/
 }
 
 
