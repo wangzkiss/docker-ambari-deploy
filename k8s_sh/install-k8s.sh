@@ -206,7 +206,7 @@ EOF
 }
 
 conf-proxy(){
-    local config_path=/etc/kubernetes/kubelet
+    local config_path=/etc/kubernetes/proxy
     cat << EOF > $config_path
 ###
 # kubernetes proxy config
