@@ -241,9 +241,12 @@ conf-flanneld-on-etcd(){
 start-master(){
     local master_host=$(get-master-host)
     pdcp -w $master_host $0 $SH_FILE_PATH
+
+    pdsh -w $master_host "sed -i 's/User=.*/User=root/g' /usr/lib/systemd/system/kube-controller-manager.service"
+    pdsh -w $master_host "sed -i 's/User=.*/User=root/g' /usr/lib/systemd/system/kube-scheduler.service"
+
     pdsh -w $master_host bash $SH_FILE_PATH/$0 _local_start_master
 }
-
 
 start-nodes(){
     # local nodes_host=$(get-nodes-host)
