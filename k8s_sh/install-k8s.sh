@@ -194,7 +194,7 @@ KUBELET_HOSTNAME=""
 
 # location of the api-server
 #KUBELET_API_SERVER="--api-servers=http://${MASTER_IP}:8080"
-KUBELET_API_SERVER="--api-servers=https://${MASTER_IP}:6443 --kubeconfig=/root/.kube/config"
+KUBELET_API_SERVER="--api-servers=https://${MASTER_IP}:6443"
 
 # pod infrastructure container
 #KUBELET_POD_INFRA_CONTAINER="--pod-infra-container-image=registry.access.redhat.com/rhel7/pod-infrastructure:latest"
