@@ -300,6 +300,9 @@ conf-kubectl(){
     kubectl config set-context default-context --cluster=default-cluster --user=default-admin
     kubectl config use-context default-context
 
+    pdsh -w $HOST_LIST mkdir -p /root/.kube/
+    pdcp -w $HOST_LIST /root/.kube/config /root/.kube/config
+
     pdsh -w $master_host "kubectl create namespace ambari"
     pdsh -w $master_host "kubectl label node $master_host role=master"
 }
