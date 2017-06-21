@@ -6,6 +6,8 @@
 : ${HDP_v2_6_PATH:=HDP-2.6/centos7}
 : ${HDP_v2_6_UTILS_PATH:=HDP-UTILS-1.1.0.21}
 
+: ${AGENT_YAML:=../k8s_amb/ambari-agent.yml}
+
 debug() {
   [ ${DEBUG} -gt 0 ] && echo "[DEBUG] $@" 1>&2
 }
@@ -93,7 +95,6 @@ amb_replace_ambari_url() {
 }
 
 amb_tool_get_HDP_url() {
-  local httpd_ip=$(get-host-ip $HTTPD_NAME)
   debug "-------------HDP 2.4-------------"
   echo "http://amb-httpd/$HDP_v2_4_PATH"
   echo "http://amb-httpd/$HDP_v2_4_UTILS_PATH"
@@ -131,7 +132,40 @@ amb_config_mysql_driver(){
   _run_amb_server_sh sh -c "ambari-server setup --jdbc-db=mysql --jdbc-driver=/usr/share/java/mysql-connector-java.jar"
 }
 
-main(){
+
+_check_hadoop_dir_input(){
+  read -p "Please input Hadoop data storage dir, default:$HADOOP_DATA, input:" INPUT
+  if [ "$INPUT" != "" ];then
+      HADOOP_DATA=$INPUT
+      sed -i "s/\/home\/hadoop_data/${HADOOP_DATA//\//\\/}/g" $AGENT_YAML
+  fi
+  echo "HADOOP_DATA=$HADOOP_DATA"
+
+  read -p "Please input Hadoop log dir, default:$HADOOP_LOG, input:" INPUT
+  if [ "$INPUT" != "" ];then
+      HADOOP_LOG=$INPUT
+      sed -i "s/\/home\/hadoop_log/${HADOOP_LOG//\//\\/}/g" $AGENT_YAML
+  fi
+  echo "HADOOP_LOG=$HADOOP_LOG"
+}
+
+amb_start_cluster(){
+  local amb_agent_nums=${1:?"usage: amb_start_cluster <amb_agent_nums>"}
+  local host_nums=$(_get-host-num)
+
+  if [[ amb_agent_nums > host_nums]]; then
+    echo "Ambari agents numbers($amb_agent_nums) have to less and equal than host numbers($host_nums)"
+    exit
+  else
+    sed -i "s/replicas: 5/replicas: $amb_agent_nums/g" $AGENT_YAML
+  fi
+
+  _check_hadoop_dir_input
+  kubectl delete -f ../k8s_amb
+  kubectl create -f ../k8s_amb
+}
+
+amb_config_cluster(){
     config_agents
     config_master
     amb_replace_ambari_url

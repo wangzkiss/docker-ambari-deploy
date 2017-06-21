@@ -33,6 +33,10 @@ spec:
               mountPath: /etc/systemd/system/ambari-agent.service.d
             - name: ambari-scripts
               mountPath: /scripts
+            - name: haddop-data
+              mountPath: /hadoop
+            - name: hadoop-log
+              mountPath: /var/log
         env: 
           - name: AMBARI_SERVER
             value: ambari-server.ambari.svc.cluster.local
@@ -43,4 +47,10 @@ spec:
           - name: ambari-scripts
             configMap: 
                 name: ambari-agent-scripts
+          - name: haddop-data
+            hostPath:
+              path: /home/hadoop_data
+          - name: hadoop-log
+            hostPath:
+              path: /home/hadoop_log
 
