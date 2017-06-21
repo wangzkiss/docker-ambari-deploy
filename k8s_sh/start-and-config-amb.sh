@@ -175,4 +175,10 @@ amb_config_cluster(){
     amb_tool_get_all_setting
 }
 
+main(){
+  amb_start_cluster
+  sleep 20
+  amb_config_cluster
+}
+
 $@
