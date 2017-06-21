@@ -155,7 +155,7 @@ amb_start_cluster(){
   local amb_agent_nums=${1:?"usage: amb_start_cluster <amb_agent_nums>"}
   local host_nums=$(_get-host-num)
 
-  if [[ amb_agent_nums > host_nums ]]; then
+  if [[ $amb_agent_nums > $host_nums ]]; then
     echo "Ambari agents numbers($amb_agent_nums) have to less and equal than host numbers($host_nums)"
     exit
   else
