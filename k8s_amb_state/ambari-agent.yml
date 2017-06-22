@@ -1,6 +1,7 @@
 apiVersion: v1
 kind: Service
 metadata:
+  namespace: ambari
   name: amb-agent
   labels:
     name: amb-agent
@@ -16,6 +17,7 @@ kind: StatefulSet
 apiVersion: apps/v1beta1
 kind: StatefulSet
 metadata:
+  namespace: ambari
   name: node
 spec:
   serviceName: "amb-agent"

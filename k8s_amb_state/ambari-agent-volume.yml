@@ -1,6 +1,7 @@
 kind: PersistentVolume
 apiVersion: v1
 metadata:
+  namespace: ambari
   name: hadoop-data-volume
   labels:
     type: local
@@ -17,6 +18,7 @@ spec:
 kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:
+  namespace: ambari
   name: hadoop-data-claim
 spec:
   # storageClassName: fast
@@ -29,6 +31,7 @@ spec:
 kind: PersistentVolume
 apiVersion: v1
 metadata:
+  namespace: ambari
   name: hadoop-log-volume
   labels:
     type: local
@@ -45,6 +48,7 @@ spec:
 kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:
+  namespace: ambari
   name: hadoop-log-claim
 spec:
   # storageClassName: fast
