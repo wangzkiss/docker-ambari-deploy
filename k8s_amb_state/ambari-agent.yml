@@ -7,7 +7,7 @@ metadata:
 spec:
   ports:
   - port: 80
-    name: noUsage
+    name: nousage
   clusterIP: None
   selector:
     name: amb-agent
