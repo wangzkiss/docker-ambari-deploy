@@ -1,0 +1,22 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: hive-server
+spec:
+  type: NodePort
+  ports:
+    - protocol: TCP
+      port: 10000
+      targetPort: 10000
+      nodePort: 31000
+---
+kind: Endpoints
+apiVersion: v1
+metadata:
+  name: hive-server
+subsets:
+  - addresses:
+      # agent-node-x ip (Hive server setuped)
+      - ip: x.x.x.x
+    ports:
+      - port: 10000
