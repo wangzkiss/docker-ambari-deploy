@@ -20,6 +20,9 @@ metadata:
   name: hadoop-data-claim
 spec:
   storageClassName: fast
+  resources:
+    requests:
+      storage: 100Gi
   accessModes:
     - ReadWriteOnce
 ---
@@ -45,5 +48,8 @@ metadata:
   name: hadoop-log-claim
 spec:
   storageClassName: fast
+  resources:
+    requests:
+      storage: 10Gi
   accessModes:
     - ReadWriteOnce
