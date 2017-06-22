@@ -1,0 +1,43 @@
+kind: PersistentVolume
+apiVersion: v1
+metadata:
+  name: hadoop-data-volume
+  labels:
+    type: local
+spec:
+  storageClassName: ""
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/home/hadoop_data"
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: hadoop-data-claim
+spec:
+  storageClassName: ""
+  accessModes:
+    - ReadWriteOnce
+---
+kind: PersistentVolume
+apiVersion: v1
+metadata:
+  name: hadoop-log-volume
+  labels:
+    type: local
+spec:
+  storageClassName: ""
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/home/hadoop_log"
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: hadoop-log-claim
+spec:
+  storageClassName: ""
+  accessModes:
+    - ReadWriteOnce
