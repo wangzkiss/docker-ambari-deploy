@@ -18,7 +18,7 @@ apiVersion: apps/v1beta1
 kind: StatefulSet
 metadata:
   namespace: ambari
-  name: node
+  name: amb-node
 spec:
   serviceName: "amb-agent"
   replicas: 3
