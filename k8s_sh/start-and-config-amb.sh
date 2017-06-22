@@ -8,6 +8,7 @@ source $(dirname $0)/k8s-env.sh
 : ${HDP_v2_6_PATH:=HDP-2.6/centos7}
 : ${HDP_v2_6_UTILS_PATH:=HDP-UTILS-1.1.0.21}
 
+: ${AGENT_VOLUME_YAML:=../k8s_amb/ambari-agent-volume.yml}
 : ${AGENT_YAML:=../k8s_amb/ambari-agent.yml}
 
 debug() {
@@ -139,14 +140,14 @@ _check_hadoop_dir_input(){
   read -p "Please input Hadoop data storage dir, default:$HADOOP_DATA, input:" INPUT
   if [ "$INPUT" != "" ];then
       HADOOP_DATA=$INPUT
-      sed -i "s/\/home\/hadoop_data/${HADOOP_DATA//\//\\/}/g" $AGENT_YAML
+      sed -i "s/\/home\/hadoop_data/${HADOOP_DATA//\//\\/}/g" $AGENT_VOLUME_YAML
   fi
   echo "HADOOP_DATA=$HADOOP_DATA"
 
   read -p "Please input Hadoop log dir, default:$HADOOP_LOG, input:" INPUT
   if [ "$INPUT" != "" ];then
       HADOOP_LOG=$INPUT
-      sed -i "s/\/home\/hadoop_log/${HADOOP_LOG//\//\\/}/g" $AGENT_YAML
+      sed -i "s/\/home\/hadoop_log/${HADOOP_LOG//\//\\/}/g" $AGENT_VOLUME_YAML
   fi
   echo "HADOOP_LOG=$HADOOP_LOG"
 }
@@ -159,7 +160,7 @@ amb_start_cluster(){
     echo "Ambari agents numbers($amb_agent_nums) have to less and equal than host numbers($host_nums)"
     exit
   else
-    sed -i "s/replicas: 5/replicas: $amb_agent_nums/g" $AGENT_YAML
+    sed -i "s/replicas:.*/replicas: $amb_agent_nums/g" $AGENT_YAML
   fi
 
   _check_hadoop_dir_input
