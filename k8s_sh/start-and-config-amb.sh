@@ -82,7 +82,7 @@ amb_tool_get_server_sshkey() {
 
 amb_tool_get_agent_host_list() {
     for i in $(_get_amb_agents_name); do
-        echo "${i//./-}.amb-agent.ambari"
+        echo "${i//./-}.amb-agent.ambari.svc.cluster.local"
     done
 }
 
