@@ -33,12 +33,12 @@ _get_amb_server_name(){
 }
 
 _get_amb_agents_name(){
-    _kubectl get pod -o wide | grep amb-agent | awk '{print $1}'
+    _kubectl get pod -o wide | grep amb-node | awk '{print $1}'
 }
 
-_get_amb_agents_ip(){
-    _kubectl get pod -o wide | grep amb-agent | awk '{print $6}'
-}
+# _get_amb_agents_ip(){
+#     _kubectl get pod -o wide | grep amb-node | awk '{print $6}'
+# }
 
 _run_amb_server_sh(){
     local ambari_server_name=$(_get_amb_server_name)
@@ -81,8 +81,8 @@ amb_tool_get_server_sshkey() {
 }
 
 amb_tool_get_agent_host_list() {
-    for i in $(_get_amb_agents_ip); do
-        echo "${i//./-}.ambari.pod.cluster.local"
+    for i in $(_get_amb_agents_name); do
+        echo "${i//./-}.amb-agent.ambari"
     done
 }
 
