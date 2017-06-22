@@ -5,6 +5,9 @@ metadata:
   labels:
     name: amb-agent
 spec:
+  ports:
+  - port: 80
+    name: noUsage
   clusterIP: None
   selector:
     name: amb-agent
