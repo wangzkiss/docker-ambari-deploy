@@ -50,10 +50,15 @@ _amb_copy_ssh_to_agent(){
     local host_name=${1:?"Usage: _amb_copy_ssh_to_agent <host_name> <server-name> "}
     _run_amb_server_sh sh -c "ssh-keyscan $host_name >> ~/.ssh/known_hosts"
     _run_amb_server_sh sh -c "sshpass -p Zasd_1234 ssh-copy-id root@${host_name}"
+
+    
 }
 
 config_master(){
     _run_amb_server_sh sh -c "echo -e  'y\n'|ssh-keygen -q -t rsa -N '' -f ~/.ssh/id_rsa"
+
+    # ssh self
+    run_command _amb_copy_ssh_to_agent ambari-server.ambari
 
     for i in $(amb_tool_get_agent_host_list); do
         run_command _amb_copy_ssh_to_agent $i
@@ -75,6 +80,11 @@ _amb_start_agent_service() {
   # set password to agent, for server ssh
   run_command _kubectl exec $agent_name -c amb-agent -- sh -c "echo Zasd_1234 | passwd root --stdin"
   run_command _kubectl exec $agent_name -c amb-agent -- sh -c "systemctl restart ntpd"
+  run_command _kubectl exec $agent_name -c amb-agent -- sh -c 'cat << EOF >> /etc/profile
+export JAVA_HOME=$JAVA_HOME
+export PATH=$PATH:$JAVA_HOME/bin
+EOF'
+
 }
 
 amb_tool_get_server_sshkey() {

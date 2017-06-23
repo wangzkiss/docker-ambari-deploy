@@ -23,5 +23,9 @@ spec:
       name: api2
       targetPort: 8441
       protocol: TCP
+    - port: 22
+      name: ssh
+      targetPort: 22
+      protocol: TCP
   selector:
     name: ambari-server

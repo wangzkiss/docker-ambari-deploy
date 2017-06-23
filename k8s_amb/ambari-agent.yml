@@ -36,6 +36,8 @@ spec:
         volumeMounts:
             - name: ambari-conf
               mountPath: /etc/systemd/system/ambari-agent.service.d
+            - name: ambari-scripts
+              mountPath: /tmp/scripts
             - name: haddop-data
               mountPath: /hadoop
             - name: hadoop-log
@@ -47,12 +49,12 @@ spec:
           - name: ambari-conf
             configMap: 
                 name: ambari-agent
+          - name: ambari-scripts
+            configMap: 
+                name: ambari-agent-scripts
           - name: haddop-data
             persistentVolumeClaim:
               claimName: hadoop-data-claim
           - name: hadoop-log
             persistentVolumeClaim:
               claimName: hadoop-log-claim
-
-    
-
