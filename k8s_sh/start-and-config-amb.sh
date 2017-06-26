@@ -191,7 +191,7 @@ amb_config_cluster(){
 }
 
 main(){
-  amb_start_cluster
+  amb_start_cluster $1
   sleep 20
   amb_config_cluster
 }
