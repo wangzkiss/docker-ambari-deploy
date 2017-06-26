@@ -58,7 +58,8 @@ config_master(){
     _run_amb_server_sh sh -c "echo -e  'y\n'|ssh-keygen -q -t rsa -N '' -f ~/.ssh/id_rsa"
 
     # ssh self
-    run_command _amb_copy_ssh_to_agent ambari-server.ambari
+    _run_amb_server_sh sh -c "echo Zasd_1234 | passwd root --stdin"
+    _amb_copy_ssh_to_agent ambari-server.ambari
 
     for i in $(amb_tool_get_agent_host_list); do
         run_command _amb_copy_ssh_to_agent $i
