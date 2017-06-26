@@ -37,6 +37,11 @@ _get_amb_agents_name(){
     _kubectl get pod -o wide | grep amb-node | awk '{print $1}'
 }
 
+
+_get_trafodion_install_node(){
+    _kubectl get pod -o wide | grep amb-node-0 | awk '{print $1}'
+}
+
 # _get_amb_agents_ip(){
 #     _kubectl get pod -o wide | grep amb-node | awk '{print $6}'
 # }
@@ -46,27 +51,46 @@ _run_amb_server_sh(){
     run_command _kubectl exec $ambari_server_name -c ambari-server -- "$@"
 }
 
-_amb_copy_ssh_to_agent(){
-    local host_name=${1:?"Usage: _amb_copy_ssh_to_agent <host_name> <server-name> "}
+_run_trafodion_sh(){
+    local trafodion_name=$(_get_trafodion_install_node)
+    run_command _kubectl exec $trafodion_name -c amb-agent -- "$@"
+}
+
+_amb_server_copy_ssh_to_agent(){
+    local host_name=${1:?"Usage: _amb_server_copy_ssh_to_agent <host_name> <server-name> "}
     _run_amb_server_sh sh -c "ssh-keyscan $host_name >> ~/.ssh/known_hosts"
     _run_amb_server_sh sh -c "sshpass -p Zasd_1234 ssh-copy-id root@${host_name}"
+}
 
-    
+_amb_trafodion_copy_ssh_to_agent(){
+    local host_name=${1:?"Usage: _amb_trafodion_copy_ssh_to_agent <host_name> <trafodion-name> "}
+    _run_trafodion_sh sh -c "ssh-keyscan $host_name >> ~/.ssh/known_hosts"
+    _run_trafodion_sh sh -c "sshpass -p Zasd_1234 ssh-copy-id root@${host_name}"
 }
 
 config_master(){
     _run_amb_server_sh sh -c "echo -e  'y\n'|ssh-keygen -q -t rsa -N '' -f ~/.ssh/id_rsa"
-
-    # ssh self
     _run_amb_server_sh sh -c "echo Zasd_1234 | passwd root --stdin"
-    _amb_copy_ssh_to_agent ambari-server.ambari
-
+ 
     for i in $(amb_tool_get_agent_host_list); do
-        run_command _amb_copy_ssh_to_agent $i
+        run_command _amb_server_copy_ssh_to_agent $i
     done
 
     _run_amb_server_sh sh -c "sort -u ~/.ssh/known_hosts > ~/.ssh/tmp_hosts"
     _run_amb_server_sh sh -c "mv ~/.ssh/tmp_hosts ~/.ssh/known_hosts"
+}
+
+config_trafodion_install_node(){
+    _run_trafodion_sh sh -c "echo -e  'y\n'|ssh-keygen -q -t rsa -N '' -f ~/.ssh/id_rsa"
+
+    _amb_trafodion_copy_ssh_to_agent ambari-server.ambari
+
+    for i in $(amb_tool_get_agent_host_list); do
+        run_command _amb_trafodion_copy_ssh_to_agent $i
+    done
+
+    _run_trafodion_sh sh -c "sort -u ~/.ssh/known_hosts > ~/.ssh/tmp_hosts"
+    _run_trafodion_sh sh -c "mv ~/.ssh/tmp_hosts ~/.ssh/known_hosts"
 }
 
 config_agents(){
@@ -185,6 +209,7 @@ amb_start_cluster(){
 amb_config_cluster(){
     config_agents
     config_master
+    config_trafodion_install_node
     amb_replace_ambari_url
     amb_test_amb_server_start
     amb_config_mysql_driver
