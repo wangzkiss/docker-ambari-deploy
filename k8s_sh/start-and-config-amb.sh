@@ -123,10 +123,10 @@ amb_test_amb_server_start() {
   local ambari_server_ip=$(get_ambari_server_ip)
 
   while [ 1 -eq 1 ]; do
-    if curl ${ambari_server_ip}:8080; then
+    if _run_amb_server_sh sh -c "curl ambari-server-web-lb:8080"; then
       break
     else
-      sleep $SLEEP_TIME
+      sleep 5
     fi
   done
 }
@@ -182,6 +182,7 @@ amb_config_cluster(){
     config_agents
     config_master
     amb_replace_ambari_url
+    amb_test_amb_server_start
     amb_config_mysql_driver
     amb_tool_get_all_setting
 }
