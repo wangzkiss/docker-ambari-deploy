@@ -176,8 +176,8 @@ amb_start_cluster(){
   _check_hadoop_dir_input
   kubectl delete -f ../k8s_amb
 
-  pdsh -w $HOST_LIST "rm -rf $HADOOP_DATA/ && rm -rf $HADOOP_LOG/"
   sleep 20
+  pdsh -w $HOST_LIST "rm -rf $HADOOP_DATA/ && rm -rf $HADOOP_LOG/"
   kubectl create -f ../k8s_amb
 }
 
