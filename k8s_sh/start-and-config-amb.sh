@@ -205,6 +205,33 @@ amb_start_cluster(){
   kubectl create -f ../k8s_amb
 }
 
+install_trafodion(){
+  locate traf_host="amb-0.agent.ambari.svc.k8s,amb-1.agent.ambari.svc.k8s,amb-2.agent.ambari.svc.k8s"
+
+  mkdir $HOME/trafodion_downloads
+  cd $HOME/trafodion_downloads
+  wget http://amb-httpd/trafodion/apache-trafodion_server-2.0.1-incubating.tar.gz
+  wget http://amb-httpd/trafodion/installer-2.0.1.tar.gz
+
+  tar -xzf installer-2.0.1.tar.gz
+  cd installer
+
+  # docker centos 7 not support port reserve 
+  sed -i "586s/^/#/g" ./trafodion_install
+
+  # allow trafodion nopassword login
+  pdsh -w $traf_host rm -f /run/nologin
+
+  ./trafodion_install
+
+  # [node list]
+  # amb-0.agent.ambari.svc.k8s amb-1.agent.ambari.svc.k8s amb-2.agent.ambari.svc.k8s
+  # [tar path]
+  # /root/trafodion_downloads/apache-trafodion_server-2.0.1-incubating.tar.gz
+  # [ambar server path]
+  # http://ambari-server.ambari:8080
+}
+
 amb_config_cluster(){
     config_agents
     config_master
