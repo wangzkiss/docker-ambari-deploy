@@ -24,7 +24,7 @@ subjectAltName = @alt_names
 DNS.1 = kubernetes
 DNS.2 = kubernetes.default
 DNS.3 = kubernetes.default.svc
-DNS.4 = kubernetes.default.svc.cluster.local
+DNS.4 = kubernetes.default.svc.k8s
 IP.1 = 10.254.0.1
 IP.2 = ${master_ip}
 EOF

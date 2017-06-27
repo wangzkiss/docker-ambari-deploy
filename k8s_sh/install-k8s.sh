@@ -200,7 +200,7 @@ KUBELET_API_SERVER="--api-servers=https://${MASTER_IP}:6443"
 #KUBELET_POD_INFRA_CONTAINER="--pod-infra-container-image=registry.access.redhat.com/rhel7/pod-infrastructure:latest"
 
 # Add your own!
-KUBELET_ARGS="--cluster_dns=10.254.0.10 --cluster_domain=cluster.local --kubeconfig=/root/.kube/config"
+KUBELET_ARGS="--cluster_dns=10.254.0.10 --cluster_domain=k8s --kubeconfig=/root/.kube/config"
 EOF
     pdcp -w $HOST_LIST $config_path $config_path
 }

@@ -47,7 +47,7 @@ spec:
           initialDelaySeconds: 3
           timeoutSeconds: 5
         args:
-        - --domain=cluster.local.
+        - --domain=k8s.
         - --dns-port=10053
         # - --kube-master-url=http://x.x.x.x:8080
         ports:
@@ -89,9 +89,9 @@ spec:
             cpu: 10m
             memory: 50Mi
         args:
-        - --cmd=nslookup kubernetes.default.svc.cluster.local 127.0.0.1 >/dev/null
+        - --cmd=nslookup kubernetes.default.svc.k8s 127.0.0.1 >/dev/null
         - --url=/healthz-dnsmasq
-        - --cmd=nslookup kubernetes.default.svc.cluster.local 127.0.0.1:10053 >/dev/null
+        - --cmd=nslookup kubernetes.default.svc.k8s 127.0.0.1:10053 >/dev/null
         - --url=/healthz-kubedns
         - --port=8080
         - --quiet

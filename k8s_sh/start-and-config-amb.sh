@@ -34,12 +34,11 @@ _get_amb_server_name(){
 }
 
 _get_amb_agents_name(){
-    _kubectl get pod -o wide | grep amb-node | awk '{print $1}'
+    _kubectl get pod -o wide | grep amb- | awk '{print $1}'
 }
 
-
 _get_trafodion_install_node(){
-    _kubectl get pod -o wide | grep amb-node-0 | awk '{print $1}'
+    _kubectl get pod -o wide | grep amb-0 | awk '{print $1}'
 }
 
 # _get_amb_agents_ip(){
@@ -118,7 +117,7 @@ amb_tool_get_server_sshkey() {
 
 amb_tool_get_agent_host_list() {
     for i in $(_get_amb_agents_name); do
-        echo "${i//./-}.amb-agent.ambari.svc.cluster.local"
+        echo "${i//./-}.agent.ambari.svc.k8s"
     done
 }
 
