@@ -232,6 +232,15 @@ install_trafodion(){
   # http://ambari-server.ambari:8080
 }
 
+start_kylin(){
+  su hdfs
+  mkdir $HOME/kylin
+  cd $HOME/kylin
+  wget http://amb-httpd/kylin/apache-kylin-1.6.0-hbase1.x-bin.tar.gz
+  cd apache-kylin-1.6.0-hbase1.x-bin
+  ./bin/kylin.sh start
+}
+
 amb_config_cluster(){
     config_agents
     config_master
