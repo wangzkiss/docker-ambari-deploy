@@ -34,7 +34,7 @@ _get_amb_server_name(){
 }
 
 _get_amb_agents_name(){
-    _kubectl get pod -o wide | grep amb- | awk '{print $1}'
+    _kubectl get pod -o wide | egrep 'amb-[0-9]+' | awk '{print $1}'
 }
 
 _get_trafodion_install_node(){
