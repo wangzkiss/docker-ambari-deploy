@@ -1,7 +1,6 @@
 #!/bin/bash
 source $(dirname $0)/k8s-env.sh
 
-: ${SH_FILE_PATH:=/tmp}
 : ${MASTER_IP:=""}
 
 get-master-host(){
@@ -240,7 +239,8 @@ conf-flanneld-on-etcd(){
 
 start-master(){
     local master_host=$(get-master-host)
-    pdcp -w $master_host $0 $SH_FILE_PATH
+    
+    _copy_this_sh $master_host
 
     pdsh -w $master_host "sed -i 's/User=.*/User=root/g' /usr/lib/systemd/system/kube-controller-manager.service"
     pdsh -w $master_host "sed -i 's/User=.*/User=root/g' /usr/lib/systemd/system/kube-scheduler.service"
@@ -250,13 +250,13 @@ start-master(){
 
 start-nodes(){
     # local nodes_host=$(get-nodes-host)
-    pdcp -w $HOST_LIST $0 $SH_FILE_PATH
+    _copy_this_sh
     pdsh -w $HOST_LIST bash $SH_FILE_PATH/$0 _local_start_nodes
 }
 
 stop-all(){
     local master_host=$(get-master-host)
-    pdcp -w $HOST_LIST $0 $SH_FILE_PATH
+    _copy_this_sh
 
     pdsh -w $HOST_LIST bash $SH_FILE_PATH/$0 _local_stop_nodes
 
