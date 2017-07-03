@@ -1,19 +1,21 @@
 kind: Service
 apiVersion: v1
 metadata:
-  name: knox_gateway
+  name: knox-gateway
+  namespace: ambari
 spec:
   type: NodePort
   ports:
     - protocol: TCP
       port: 8443
       targetPort: 8443
-      nodePort: 38443
+      nodePort: 30443
 ---
 kind: Endpoints
 apiVersion: v1
 metadata:
-  name: knox_gateway
+  name: knox-gateway
+  namespace: ambari
 subsets:
   - addresses:
       # agent-node-x ip (Hive server setuped)
