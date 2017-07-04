@@ -2,6 +2,7 @@ kind: Service
 apiVersion: v1
 metadata:
   name: hive-server
+  namespace: ambari
 spec:
   type: NodePort
   ports:
@@ -14,6 +15,7 @@ kind: Endpoints
 apiVersion: v1
 metadata:
   name: hive-server
+  namespace: ambari
 subsets:
   - addresses:
       # agent-node-x ip (Hive server setuped)
