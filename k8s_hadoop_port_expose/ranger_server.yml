@@ -1,0 +1,24 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: ranger
+  namespace: ambari
+spec:
+  type: NodePort
+  ports:
+    - protocol: TCP
+      port: 6080
+      targetPort: 6080
+      nodePort: 30680
+---
+kind: Endpoints
+apiVersion: v1
+metadata:
+  name: ranger
+  namespace: ambari
+subsets:
+  - addresses:
+      # agent-node-x ip (Hive server setuped)
+      - ip: x.x.x.x
+    ports:
+      - port: 6080
