@@ -231,8 +231,7 @@ add-new-host(){
     local etcd_cluster_docker=$(_get-etcd-ip-list etcd)
     local etcd_cluster=$(_get-etcd-ip-list http)
 
-    _copy_this_sh $host
-
+    _copy_this_sh
     # copy calicoctl
     pdcp -w $host ./calicoctl /usr/local/bin/calicoctl
     
