@@ -3,6 +3,8 @@
 # import common variable
 source $(dirname $0)/env.sh
 
+export ETCD_ENDPOINTS=$(_get-etcd-ip-list http)
+
 etcd-open-ports() {
     local etcd_host_list=$(_get-etcd-host-list)
     pdsh -w $etcd_host_list firewall-cmd --zone=public --add-port=2380/tcp --permanent
