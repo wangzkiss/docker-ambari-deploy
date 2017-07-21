@@ -68,10 +68,13 @@ pre-network() {
 pre-deploy() {
     local passwd=${1:?"Usage: pre-deploy <host-passwd>"}
     read -p "Please input host list comma as segmentation default:[$HOST_LIST] input:" INPUT
-    HOST_LIST=$INPUT
-    echo $HOST_LIST
 
-    sed -i "s/HOST_LIST=\(.*\)/HOST_LIST=$HOST_LIST/g" $ENV_FILE
+    if [[ "$INPUT" != "" ]];then
+        HOST_LIST=$INPUT
+        echo $HOST_LIST
+        sed -i "s/HOST_LIST=\(.*\)/HOST_LIST=$HOST_LIST/g" $ENV_FILE
+    fi
+    
     # install on local server
     yum install -y epel-release sshpass pdsh git
 
