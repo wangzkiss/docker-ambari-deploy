@@ -131,6 +131,7 @@ amb-start-ambari-server() {
   debug "starting amb-server"
   run-command docker run -d $DOCKER_OPTS --net ${CALICO_NET} --ip $local_ip \
               --privileged --name $AMBARI_SERVER_NAME \
+              -e MYSQL_DB=mysql.service.consul
               -v $HADOOP_LOG/$AMBARI_SERVER_NAME:/var/log \
               -h $AMBARI_SERVER_NAME.service.consul $ambari_server_image \
               systemd.setenv=NAMESERVER_ADDR=$consul_ip
@@ -146,7 +147,9 @@ amb-start-ambari-server() {
 
 amb-start-mysql() {
   local local_ip=${1:?"Usage: amb-start-mysql <ip>"}
-  run-command docker run --net ${CALICO_NET} --ip $local_ip --name $MYSQL_SERVER_NAME -e MYSQL_ROOT_PASSWORD=$MYSQL_PASSWD -d mysql
+  run-command docker run --net ${CALICO_NET} --ip $local_ip --name $MYSQL_SERVER_NAME \
+              -e MYSQL_ROOT_PASSWORD=$MYSQL_PASSWD -d registry.cn-hangzhou.aliyuncs.com/tospur/mysql
+
   set-host-ip $MYSQL_SERVER_NAME $local_ip
   run-command consul-register-service $MYSQL_SERVER_NAME $(get-host-ip $MYSQL_SERVER_NAME)
 }

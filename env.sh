@@ -17,7 +17,7 @@ HDP_PKG_DIR=/home/hdp_httpd_home
 HADOOP_DATA=/home/hadoop_data
 HADOOP_LOG=/home/hadoop_log
 
-AMBARI_VERSION=v2.5
+AMBARI_VERSION=v2.4
 AMBARI_v2_4_PATH=AMBARI-2.4.0.1/centos7/2.4.0.1-1
 AMBARI_v2_5_PATH=AMBARI-2.5.0.3/centos7
 
