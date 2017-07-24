@@ -131,7 +131,7 @@ amb-start-ambari-server() {
   debug "starting amb-server"
   run-command docker run -d $DOCKER_OPTS --net ${CALICO_NET} --ip $local_ip \
               --privileged --name $AMBARI_SERVER_NAME \
-              --dns $consul_ip \
+              --dns $consul_ip  --dns-search service.consul \
               -e MYSQL_DB=mysql.service.consul -e NAMESERVER_ADDR=$consul_ip \
               -v $HADOOP_LOG/$AMBARI_SERVER_NAME:/var/log \
               -h $AMBARI_SERVER_NAME.service.consul $ambari_server_image 
@@ -190,8 +190,7 @@ amb-start-node() {
 
   run-command docker run -d $DOCKER_OPTS --privileged --net ${CALICO_NET} --ip $local_ip --name $node_name \
               -v $HADOOP_DATA/${node_name}:/hadoop -v $HADOOP_LOG/${node_name}:/var/log \
-              --dns $consul_ip \
-              -e NAMESERVER_ADDR=$consul_ip \
+              --dns $consul_ip  --dns-search service.consul \
               -h ${node_name}.service.consul $ambari_agent_image
 
   set-host-ip $node_name $local_ip
