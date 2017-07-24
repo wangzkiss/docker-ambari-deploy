@@ -43,7 +43,7 @@ one-etcd-start() {
     pdsh -w $host1 "docker stop etcd && docker rm etcd"
     pdsh -w $host1 \
         "docker run -d -v /usr/share/ca-certificates/:/etc/ssl/certs -p 2380:2380 -p 2379:2379 \
-         --restart always \
+         --restart always --network host \
          --name etcd twang2218/etcd:v2.3.7 \
          -name etcd1 \
          -advertise-client-urls http://$host1_ip:2379 \
@@ -75,7 +75,7 @@ _three-etcd-docker-start(){
     pdsh -w $host "docker stop etcd && docker rm etcd"
     pdsh -w $host \
         "docker run -d -v /usr/share/ca-certificates/:/etc/ssl/certs -p 2380:2380 -p 2379:2379 \
-         --restart always \
+         --restart always --network host \
          --name etcd twang2218/etcd:v2.3.7  \
          -name etcd${node_num} \
          -advertise-client-urls http://$host_ip:2379 \

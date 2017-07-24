@@ -131,7 +131,7 @@ amb-start-ambari-server() {
   debug "starting amb-server"
   run-command docker run -d $DOCKER_OPTS --net ${CALICO_NET} --ip $local_ip \
               --privileged --name $AMBARI_SERVER_NAME \
-              -e MYSQL_DB=mysql.service.consul
+              -e MYSQL_DB=mysql.service.consul \
               -v $HADOOP_LOG/$AMBARI_SERVER_NAME:/var/log \
               -h $AMBARI_SERVER_NAME.service.consul $ambari_server_image \
               systemd.setenv=NAMESERVER_ADDR=$consul_ip
