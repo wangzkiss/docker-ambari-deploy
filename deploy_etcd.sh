@@ -35,6 +35,9 @@ etcd-start() {
     else
         three-etcd-start
     fi
+
+    debug "etcd cluster-health checking............................"
+    _etcdctl cluster-health
 }
 
 one-etcd-start() {
