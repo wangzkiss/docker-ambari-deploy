@@ -1,0 +1,29 @@
+## etl
+FROM registry.cn-hangzhou.aliyuncs.com/tospur/amb-base
+ADD vigor-etl.tar.gz /home
+RUN RUN yum install -y sshpass
+WORKDIR /home/vigor-etl
+ENTRYPOINT ["/home/vigor-etl/start.sh"]
+CMD ["15100"]
+
+
+
+## tvigor-tomcat
+FROM tomcat:8.0-jre8
+RUN apt-get -y update && apt-get install -y  sshpass
+
+
+
+##etl 的镜像文件
+FROM openjdk:7-jre
+ADD vigor-etl.tar.gz /home
+ADD sshpass.tar.gz /home
+RUN  set -x nativeBuildDeps=" dpkg-dev  gcc libapr1-dev libssl-dev make " \
+     && apt-get update && apt-get install -y --no-install-recommends $nativeBuildDeps \
+     && apt-get install openssh-server \ 
+     && cd /home/sshpass-1.06/ \
+     && ./configure \
+     && make install \
+WORKDIR /home/vigor-etl
+ENTRYPOINT ["/home/vigor-etl/start.sh"]
+
