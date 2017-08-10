@@ -5,11 +5,17 @@ source $(dirname $0)/env.sh
 
 export ETCD_ENDPOINTS=$(_get-etcd-ip-list http)
 
+CURRENT_EXE_FILE=$SH_FILE_PATH/${0##*/}
+
 etcd-open-ports() {
     local etcd_host_list=$(_get-etcd-host-list)
-    pdsh -w $etcd_host_list firewall-cmd --zone=public --add-port=2380/tcp --permanent
-    pdsh -w $etcd_host_list firewall-cmd --zone=public --add-port=2379/tcp --permanent
-    pdsh -w $etcd_host_list firewall-cmd --reload
+    pdsh -w $etcd_host_list bash $CURRENT_EXE_FILE _open-etcd-ports
+
+}
+
+_open-etcd-ports(){
+    _local_open-port 2380
+    _local_open-port 2379
 }
 
 _stop-etcd-progress() {
@@ -93,7 +99,7 @@ _three-etcd-docker-start(){
 config-docker-daemon-with-etcd() {
     _copy_this_sh
     local etcd_cluster=$(_get-etcd-ip-list etcd)
-    pdsh -w $HOST_LIST bash $SH_FILE_PATH/$0 _local-config-docker $etcd_cluster
+    pdsh -w $HOST_LIST bash $CURRENT_EXE_FILE _local-config-docker $etcd_cluster
 }
 
 _local-config-docker() {
@@ -114,8 +120,7 @@ _local_calico_start() {
     local host_ip=${2:?"Usage:_local_calico_start <etcd_cluster> <host_ip> "}
 
     # open port:179 for BPG protocol (calico use for node communication)
-    firewall-cmd --zone=public --add-port=179/tcp --permanent
-    firewall-cmd --reload
+    _local_open-port 179
 
     chmod +x /usr/local/bin/calicoctl
     # 默认的name 和hostName 一致，如果两台机器的hostName一致，则必须指定，不然bgp发现不了远端
@@ -132,10 +137,10 @@ calico-start() {
     # copy calicoctl
     pdcp -w $HOST_LIST ./calicoctl /usr/local/bin/calicoctl
     _copy_this_sh
-    
+
     for host in ${HOST_LIST//,/ }; do
         local host_ip=$(_get-host-ip $host)
-        pdsh -w $host bash $SH_FILE_PATH/$0 _local_calico_start $etcd_cluster $host_ip
+        pdsh -w $host bash $CURRENT_EXE_FILE _local_calico_start $etcd_cluster $host_ip
     done
     sleep 5
     pdsh -w $(_get-first-host) calicoctl node status
@@ -225,7 +230,7 @@ _local-stop-containers() {
 }
 
 stop-containers() {
-    pdsh -w $HOST_LIST bash $SH_FILE_PATH/$0 _local-stop-containers
+    pdsh -w $HOST_LIST bash $CURRENT_EXE_FILE _local-stop-containers
 }
 
 add-new-host(){
@@ -237,8 +242,8 @@ add-new-host(){
     _copy_this_sh
     # copy calicoctl
     pdcp -w $host ./calicoctl /usr/local/bin/calicoctl
-    
-    pdsh -w $host bash $SH_FILE_PATH/$0 _local-add-new-host $host_ip $etcd_cluster_docker $etcd_cluster
+
+    pdsh -w $host bash $CURRENT_EXE_FILE _local-add-new-host $host_ip $etcd_cluster_docker $etcd_cluster
 
 }
 

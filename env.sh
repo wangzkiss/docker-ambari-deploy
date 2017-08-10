@@ -21,7 +21,17 @@ AMBARI_VERSION=v2.4
 AMBARI_v2_4_PATH=AMBARI-2.4.0.1/centos7/2.4.0.1-1
 AMBARI_v2_5_PATH=AMBARI-2.5.0.3/centos7
 
-HOST_LIST=dc01,dc02,dc03,dc04,dc05
+HOST_LIST=docker-220,docker-229,docker-222
+
+
+_local_open-port(){
+    local host_port=${1:?"_local_open-port <host_port>"}
+
+    for i in $( iptables -nvL INPUT --line-numbers | grep $host_port | awk '{ print $1 }' | tac ); \
+        do iptables -D INPUT $i; done
+    iptables -A INPUT -m state --state NEW -p tcp --dport $host_port -j ACCEPT
+    service iptables save
+}
 
 _copy_this_sh() {
     local host=$1
@@ -49,6 +59,10 @@ _get-second-host() {
 
 _get-third-host() {
     cut -d',' -f 3 <<< $HOST_LIST
+}
+
+_get-2after-hosts() {
+    cut -d',' -f 2- <<< $HOST_LIST
 }
 
 _get-first-host-ip() {
@@ -133,7 +147,10 @@ consul-register-service() {
   "
 }
 
-
+list-consul-register-nodes(){
+    local consul_ip=$(get-consul-ip)
+    docker run  --net ${CALICO_NET} --rm appropriate/curl sh -c "curl http://$consul_ip:8500/v1/catalog/nodes"
+}
 
 docker-ps() {
   docker inspect --format="{{.Name}} [{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}] {{.Config.Image}} {{.Config.Entrypoint}} {{.Config.Cmd}}" $(docker ps -q)
@@ -141,9 +158,4 @@ docker-ps() {
 
 docker-psa() {
   docker inspect --format="{{.Name}} [{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}] {{.Config.Image}} {{.Config.Entrypoint}} {{.Config.Cmd}}" $(docker ps -qa)
-}
-
-list-consul-register-nodes(){
-    local consul_ip=$(get-consul-ip)
-    docker run  --net ${CALICO_NET} --rm appropriate/curl sh -c "curl http://$consul_ip:8500/v1/catalog/nodes"
 }
