@@ -8,6 +8,11 @@ source ${DIR_HOME}/env.sh
 : ${KYLIN_HOST:=kylin.service.consul}
 : ${AMR_URL_PORT:=8080}
 : ${AMR_URL_HOST:=amb-server.service.consul}
+: ${HSFS_SERVER_NAME:=amb1.service.consul}
+: ${AMR_DATA_HOST_PWD:=Zasd_1234}
+: ${AMR_DATA_HOST:=amb1.service.consul}
+: ${AMR_CLSTER_NAME:=vigordata}
+
 # def  etl
 : ${ETL_NAME:=vigor-etl}
 : ${ETL_PORT:=15100}
@@ -15,8 +20,6 @@ source ${DIR_HOME}/env.sh
 : ${ADMIN_NAME:=vigor-admin}
 : ${ADMIN_PORT:=8900}
 : ${ADMIN_WAR:=vigordata-web}
-: ${AMR_DATA_HOST_PWD:=Zasd_1234}
-: ${AMR_DATA_HOST:=amb1.service.consul}
 
 # def  sch
 : ${SCHEDULER_NAME:=vigor-scheduler}
@@ -27,7 +30,7 @@ source ${DIR_HOME}/env.sh
 : ${BATCH_NAME:=vigor-batch}
 : ${BATCH_PORT:=8902}
 : ${BATCH_WAR:=vigordata-batchagent}
-: ${HSFS_SERVER_NAME:=xdata2}
+
 
 # def  etlagent
 : ${ETLAGENT_NAME:=vigor-etlagent}
@@ -39,12 +42,69 @@ source ${DIR_HOME}/env.sh
 : ${STREAMING_PORT:=8904}
 : ${STREAMING_WAR:=vigordata-streamingagent}
 
+clean_apps(){
+	#bash ambari-functions.sh amb-clean-cluster   Çå³ýÈÝÆ÷
+	pdsh -w $hostname  "docker ps -a | grep  vigor  |awk '{print $1}' | xargs docker stop"
+	pdsh -w $hostname  "docker ps -a | grep  vigor  |awk '{print $1}' | xargs docker rm"
 
-load_image(){
-	## docker load < ./vigor-etl-img.tar
-	## docker load < ./vigor-tomcat.tar
-	local filename=${1:?"load_image <filename>]"}
-	docker load < ${DIR_HOME}/${filename}
+}
+
+load_etl_image(){
+	local hostname=${1:?"node <hostname>]"}
+	/bin/cp -f  ${DIR_HOME}/../../sh_files/env.sh  ${DIR_HOME}/
+	pdcp -w $hostname ${DIR_HOME}/vigor-etl-img.tar  /tmp/
+	pdcp -w $hostname ${DIR_HOME}/../../sh_files/env.sh  /tmp/
+	pdsh -w $hostname "docker load < /tmp/vigor-etl-img.tar"
+}
+
+load_app_image(){
+	local hostname=${1:?"node <hostname>]"}
+	/bin/cp -f  ${DIR_HOME}/../../sh_files/env.sh  ${DIR_HOME}/
+	pdcp -w $hostname ${DIR_HOME}/../../sh_files/env.sh  /tmp/
+	pdcp -w $hostname ${DIR_HOME}/vigor-tomcat.tar  /tmp/
+	pdsh -w $hostname "docker load < /tmp/vigor-tomcat.tar"
+}
+
+install_app(){
+	local hostname=${1:?"install_app <hostname>  <appname> (vigor-admin |vigor-scheduler | vigor-batch |vigor-etlagent |vigor-streaming | vigor-etl)]"}
+	local warname=${2:?"install_app  <hostname>  <appname> (vigor-admin |vigor-scheduler | vigor-batch |vigor-etlagent |vigor-streaming | vigor-etl)"}
+	#pdcp -w $hostname "${DIR_HOME}/env.sh"  /tmp/
+	case ${warname} in 
+         ${ADMIN_NAME}) 
+          ##¿ª·Å¶Ë¿Ú
+         	pdcp -w $hostname "${DIR_HOME}/start_app.sh"  /tmp/
+			pdcp -w $hostname "${DIR_HOME}/${ADMIN_WAR}.war" /tmp/
+			pdsh -w $hostname "bash /tmp/start_app.sh  start_admin"
+         ;; 
+          ${ETL_NAME}) 
+         	pdcp -w $hostname "${DIR_HOME}/start_app.sh"  /tmp/
+			pdsh -w $hostname "bash /tmp/start_app.sh  start_etl"
+         ;; 
+          ${BATCH_NAME}) 
+        	pdcp -w $hostname "${DIR_HOME}/start_app.sh"  /tmp/
+			pdcp -w $hostname "${DIR_HOME}/${BATCH_WAR}.war" /tmp/
+			pdsh -w $hostname "bash /tmp/start_app.sh  start_batch"
+         ;; 
+          ${SCHEDULER_NAME}) 
+        	pdcp -w $hostname "${DIR_HOME}/start_app.sh"  /tmp/
+			pdcp -w $hostname "${DIR_HOME}/${SCHEDULER_WAR}.war" /tmp/
+			pdsh -w $hostname "bash /tmp/start_app.sh  start_sch"
+         ;; 
+          ${ETLAGENT_NAME}) 
+        	pdcp -w $hostname "${DIR_HOME}/start_app.sh"  /tmp/
+			pdcp -w $hostname "${DIR_HOME}/${ETLAGENT_WAR}.war" /tmp/
+			pdsh -w $hostname "bash /tmp/start_app.sh  start_etlagent"
+         ;; 
+         ${STREAMING_NAME}) 
+         	pdcp -w $hostname "${DIR_HOME}/start_app.sh"  /tmp/
+			pdcp -w $hostname "${DIR_HOME}/${STREAMING_WAR}.war" /tmp/
+			pdsh -w $hostname "bash /tmp/start_app.sh  start_stream"
+         ;; 
+         *) 
+           echo "Ignorant" 
+         ;; 
+    esac 
+    ##×¢²ádns
 }
 
 #start etl server
@@ -71,8 +131,6 @@ start_etl(){
 	
 	##×¢²ádns
 	consul-register-service ${ETL_NAME} $app_ip
-	
-
 }
 
 
@@ -96,7 +154,8 @@ start_admin(){
 		sed -i "/ambr_port/{s/=.*/= ${AMR_URL_PORT}/g}"   /home/${ADMIN_NAME}/webapps/${ADMIN_WAR}/WEB-INF/classes/tospur.properties
 		sed -i "/hdfs_nameservices/{s/=.*/= ${HSFS_SERVER_NAME}/g}"   /home/${ADMIN_NAME}/webapps/${ADMIN_WAR}/WEB-INF/classes/tospur.properties
 		sed -i "/kylin_default_project/{s/=.*/= ${ADMIN_WAR}/g}"   /home/${ADMIN_NAME}/webapps/${ADMIN_WAR}/WEB-INF/classes/tospur.properties
-
+		sed -i "/ambr_cluster_name/{s/=.*/= ${AMR_CLSTER_NAME}/g}"   /home/${ADMIN_NAME}/webapps/${ADMIN_WAR}/WEB-INF/classes/tospur.properties
+		
 
 		local consul_ip=$(get-consul-ip)
 		docker run  --privileged  --net ${CALICO_NET} --dns $consul_ip  --name ${ADMIN_NAME}  -v /home/${ADMIN_NAME}/webapps:/usr/local/tomcat/webapps  -d  vigor-tomcat 

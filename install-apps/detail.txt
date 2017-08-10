@@ -1,0 +1,110 @@
+详细配置信息：
+
+安装包目录：/home/$home
+
+各个服务信息如下：
+
+ambri服务
+所在机器：$ambriIp
+ambri访问地址：http://$ambriIp:8080     用户名/密码:admin/admin
+
+计算集群信息：
+所在机器：$hostlist  所在容器：amb1,amb2,amb3...
+hadoop hbase hive集群配置信息：
+hadoop：amb1容器中 /usr/hdp/2.4.0.0-169/hadoop/etc/hadoop/
+hbase：amb1容器中  /usr/hdp/2.4.0.0-169/hbase/conf/
+hive：amb1容器中  /usr/hdp/2.4.0.0-169/hive/conf/
+
+ETL集群
+所在机器：$etlIps 所在容器：vigor-etl
+访问地址：htttp://$etlIps:8900/:8900/vigordata-web
+容器配置文件：/home/vigor-etl/repositories.xml
+集群依赖配置配置目录：/home/vigor-etl/plugins/pentaho-big-data-plugin/hadoop-configurations/hdp21/
+
+管理系统
+所在机器：$adminIps  所在容器：vigor-admin
+映射物理目录：/home/vigor-admin/webapps
+配置文件目录：/home/vigor-admin/webapps/vigordata-web/WEB-INF/classes/
+用户名/密码:admin/admin
+访问地址：htttp://$adminIps:8900/:8900/vigordata-web
+
+调度系统
+所在机器：$schedulerIps  所在容器：vigor-scheduler
+映射物理目录：/home/vigor-scheduler/webapps
+配置文件目录：/home/vigor-scheduler/webapps/vigordata-scheduler/WEB-INF/classes/
+
+计算系统
+所在机器：$adminIps  所在容器：vigor-batch
+映射物理目录：/home/vigor-batch/webapps
+配置文件目录：/home/vigor-batch/webapps/vigordata-batchagent/WEB-INF/classes/
+
+ETL-Agent
+所在机器：$adminIps  所在容器：vigor-etlagent
+映射物理目录：/home/vigor-etlagent/webapps
+配置文件目录：/home/vigor-etlagent/webapps/vigordata-etlagent/WEB-INF/classes/
+
+流计算系统
+所在机器：$adminIps  所在容器：vigor-streaming
+映射物理目录：/home/vigor-streaming/webapps  
+配置文件目录：/home/vigor-streaming/webapps/vigordata-streamingagent/WEB-INF/classes/
+
+数据服务系统
+所在机器：$dataServerIp  所在容器：vigor-dataserver
+映射物理目录：/home/vigor-dataserver/webapps
+配置文件目录：/home/vigor-dataserver/webapps/vigordata-dataserver/WEB-INF/classes/
+
+
+
+手动部署说明：
+进入堡垒机，准备环境，配置所有机器的hosts文件，配置好机器名
+如：
+172.18.84.222 docker-222
+172.18.84.220 docker-220
+172.18.84.229 docker-229
+
+进入安装目录：/home/$home/sh_files
+第一步：环境软件安装      bash pre-env.sh pre-deploy <password>
+第二步：搭建docker 网络   bash deploy_etcd.sh main
+第三步：启动ambari 集群   bash ambari-functions.sh java-api-start-cluster
+第四步：浏览器访问http://$ambriIp:8080 地址，安装hadoop hive hbase等基本集群 并记住安装的集群名称 如vigordata
+第五步：安装应用。进入应用安装目录 cd /home/$home/IMAGES_TAR/app_imagas
+第六步：加载镜像image  
+          bash start_app.sh load_app_image $adminIps  //加载tomcat
+          bash start_app.sh load_app_image $schedulerIps  //加载tomcat
+          bash start_app.sh load_etl_image $etlIps   // 加载 etl
+第七步：安装启动应用  
+         修改配置集群名： sed -i "/AMR_CLSTER_NAME:/{s/=.*/=vigordata\}/g}" /home/$home/IMAGES_TAR/app_imagas/start_app.sh
+          bash start_app.sh install_app $adminIps vigor-admin  
+          bash start_app.sh install_app $schedulerIps vigor-scheduler
+          bash start_app.sh install_app $adminIps vigor-batch
+          bash start_app.sh install_app $adminIps vigor-etlagent
+          bash start_app.sh install_app $adminIps vigor-streaming
+
+常见部署问题    
+1.ambari 安装的时候 Group  组使用默认的 （Default） 
+   需要要安装ambari metrics , hdfs ,yarn ,hive ,spark,hbase,flume 组件
+   资源监控的是需要访问
+2.hive连接不上  解决方法
+  解决方法：修改hive-site.xml 配置
+  custom core-site.xml:
+  hadoop.proxyuser.hive.hosts = *
+  hadoop.proxyuser.hive.groups = *
+3. 访问  dfs -ls hdfs://test/apps/hive/warehouse/test.db/flums  连接不上  
+   解决方法：
+   t添加  hdfs-site.xl 文件
+    <property>
+      <name>dfs.nameservices</name>
+      <value>test</value>
+    </property>
+     和 文件中core-site.xml中的fs.defaultFS的值要一致
+     <property>
+      <name>fs.defaultFS</name>
+      <value>hdfs://amb1.service.consul:8020</value>
+      <final>true</final>
+    </property>
+    配置完成后 test改成 amb1.service.consul   dfs -ls hdfs://amb1.service.consul/apps/hive/warehouse/test.db/flums 
+
+
+
+
+    
