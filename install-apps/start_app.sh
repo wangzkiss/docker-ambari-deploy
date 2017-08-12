@@ -42,10 +42,38 @@ source ${DIR_HOME}/env.sh
 : ${STREAMING_PORT:=8904}
 : ${STREAMING_WAR:=vigordata-streamingagent}
 
+#admin hosts
+admin_ip=docker-229
+scheduler_ip=docker-229
+batch_ip=docker-229
+etl_ip=docker-229
+
+
+
 clean_apps(){
 	#bash ambari-functions.sh amb-clean-cluster   清除容器
 	pdsh -w $hostname  "docker ps -a | grep  vigor  |awk '{print $1}' | xargs docker stop"
 	pdsh -w $hostname  "docker ps -a | grep  vigor  |awk '{print $1}' | xargs docker rm"
+
+}
+restart_all()
+{
+	## 重启admin
+	pdsh -w $admin_ip  "bash  /tmp/start_app restart vigor-admin"
+	#重启batch
+	pdsh -w $batch_ip  "bash  /tmp/start_app restart vigor-batch"
+	#重启etlagent
+	pdsh -w $admin_ip "bash /tmp/start_app restart vigor-etlagent"
+	#重启stream 
+	pdsh -w $admin_ip "bash /tmp/start_app restart vigor-streaming"
+	#重启调度
+	for ip in $scheduler_ip; do
+		 pdsh -w $ip "bash /tmp/start_app restart vigor-scheduler"
+	done
+	#重启etl集群
+	for ip in $etl_ip; do
+		 pdsh -w $ip "bash /tmp/start_app restart vigor-etl"
+	done
 
 }
 
